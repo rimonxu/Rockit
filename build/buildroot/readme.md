@@ -1,7 +1,7 @@
 
 # Build Rockit in Linux 3308
 
-## Config Rockit for Linux 3308
+## 1 Config Rockit for Linux 3308
 
 ```
 $ cd rk3308_linux
@@ -11,7 +11,7 @@ $ cd buildroot/output/rockchip_rk3308_release
 $ make rockit-rebuild
 ```
 
-## Update Rockit
+## 2 Update Rockit
 
 ```
 $ rm build/rockit/.stamp_built
@@ -29,7 +29,7 @@ $ mv /data/librt_player_shared.so /oem/lib
 $ ./rt_player_test
 ```
 
-## Build 3308 Fireware
+## 3 Build 3308 Fireware
 
 ```
 $ cd ~/code/git-3308-rns/MINI-S1-RK3308
@@ -38,9 +38,25 @@ $ cd ~/code/git-3308-rns/MINI-S1-RK3308
 $ ./build.sh 
 ```
 
-## Config Ethernet
+## 4 Config Ethernet
 
 ```
 $ adb push wpa_supplicant.conf /data/cfg/
 $ ifconfig
+```
+
+## 5 Config gdb for linux
+
+```
+$ cd ${SDK_ROOT}/buildroot/output/rockchip_rk3308_soundai_release/
+$ make menuconfig
+$ -- build option
+$ -- -- build packages with debugging symbols [y]
+$ -- -- strip target binaries [n]
+$ -- Toolchain
+$ -- -- Build cross gdb for the host -> GDB debugger Version (gdb 7.11.x) [y]
+$ -- Target packages
+$ -- --  Debugging, profiling and benchmark --> gdb [y] -- full debugger [y]
+$ -- --  Debugging, profiling and benchmark --> strace [y]
+$ -- --  Development tools --> cppunit/gperf [n]
 ```
