@@ -63,6 +63,15 @@ typedef enum _RT_NODE_CMD {
     RT_NODE_CMD_DUMP,
 } RT_NODE_CMD;
 
+typedef enum _RT_NODE_STATE {
+    NODE_STATE_IDLE,          // init but not started
+    NODE_STATE_SEEKING,       // seeking
+    NODE_STATE_PAUSED,        // paused
+    NODE_STATE_STARTED,       // started
+    NODE_STATE_ERROR,         // fetal error
+    NODE_STATE_MAX,
+} RT_NODE_STATE;
+
 typedef enum _RT_NODE_MSG {
     RT_NODE_MSG_BASE = 3000,
     RT_NODE_MSG_CAPS,

@@ -59,7 +59,7 @@ RT_RET unit_test_player_with_thread(const char* uri, bool rand) {
     }
 
     // wait util of playback complete
-    ndkPlayer->wait(0);    // wait for timeout(ms)
+    ndkPlayer->wait(600*1000*1000);    // wait for timeout(ms)
     #if 0
     ndkPlayer->playPcm(media_two);
     ndkPlayer->wait();

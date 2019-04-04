@@ -48,6 +48,7 @@ struct NodePlayerContext {
     RTSeekType          mSeekFlag;
     RT_BOOL             mLooping;
     RtMetaData         *mCmdOptions;
+    RtMutex            *mNodeLock;
     INT64               mSaveSeekTimeUs;
     INT64               mWantSeekTimeUs;
     INT64               mCurTimeUs;
@@ -87,7 +88,8 @@ RTNDKNodePlayer::RTNDKNodePlayer() {
     mPlayerCtx->mRT_Callback   = NULL;
     mPlayerCtx->mLooping       = RT_FALSE;
     mPlayerCtx->mProtocolType  = RT_PROTOCOL_NONE;
-    mPlayerCtx->mCmdOptions = new RtMetaData();
+    mPlayerCtx->mCmdOptions    = new RtMetaData();
+    mPlayerCtx->mNodeLock      = new RtMutex();
 
     init();
 
@@ -111,6 +113,7 @@ RT_RET RTNDKNodePlayer::release() {
     rt_safe_delete(mPlayerCtx->mLooper);
     rt_safe_delete(mPlayerCtx->mDirector);
     rt_safe_delete(mPlayerCtx->mCmdOptions);
+    rt_safe_delete(mPlayerCtx->mNodeLock);
     rt_safe_free(mPlayerCtx);
 
     // @review: release node bus
@@ -155,6 +158,9 @@ RT_RET RTNDKNodePlayer::reset() {
         rt_safe_delete(mPlayerCtx->mDeliverThread);
         mPlayerCtx->mDeliverThread = RT_NULL;
     }
+
+    // nodebus be operated by multithread
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
 
     // @TODO: do reset player
     mNodeBus->excuteCommand(RT_NODE_CMD_RESET);
@@ -228,6 +234,9 @@ RT_RET RTNDKNodePlayer::start() {
         return err;
     }
 
+    // nodebus be operated by multithread
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+
     UINT32 curState = getCurState();
     RTMessage* msg  = RT_NULL;
     switch (curState) {
@@ -259,6 +268,9 @@ RT_RET RTNDKNodePlayer::pause() {
     if (RT_OK != err) {
         return err;
     }
+
+    // nodebus be operated by multithread
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
 
     UINT32 curState = this->getCurState();
     RTMessage* msg  = RT_NULL;
@@ -298,6 +310,9 @@ RT_RET RTNDKNodePlayer::stop() {
       case RT_STATE_PAUSED:
       case RT_STATE_COMPLETE:
       case RT_STATE_ERROR:
+        // nodebus be operated by multithread
+        RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+
         // @TODO: do stop player
         mNodeBus->excuteCommand(RT_NODE_CMD_STOP);
         mPlayerCtx->mLooper->flush();
@@ -349,7 +364,7 @@ RT_RET RTNDKNodePlayer::seekTo(INT64 usec) {
         return err;
     }
 
-    RT_LOGE("seek %lld us", usec);
+    RT_LOGE("seek %lld ms", usec/1000);
     UINT32 curState = this->getCurState();
     switch (curState) {
       case RT_STATE_IDLE:
@@ -357,7 +372,7 @@ RT_RET RTNDKNodePlayer::seekTo(INT64 usec) {
       case RT_STATE_PREPARING:
         mPlayerCtx->mWantSeekTimeUs = -1;
         mPlayerCtx->mSaveSeekTimeUs = usec;
-        RT_LOGE("seek %lld us", usec);
+        RT_LOGE("seek %lld ms", usec/1000);
         RTMediaUtil::dumpStateError(curState, "seekTo, save only");
         break;
       case RT_STATE_PREPARED:
@@ -365,15 +380,15 @@ RT_RET RTNDKNodePlayer::seekTo(INT64 usec) {
       case RT_STATE_STARTED:
       case RT_STATE_COMPLETE:
         // @TODO: do pause player
-        RT_LOGE("seek %lld us mPlayerCtx: %p mSeekFlag %d", usec, mPlayerCtx, mPlayerCtx->mSeekFlag);
+        RT_LOGE("seek %lld ms; mPlayerCtx: %p; mSeekFlag %d", usec/1000, mPlayerCtx, mPlayerCtx->mSeekFlag);
         switch (mPlayerCtx->mSeekFlag) {
           case RT_SEEK_DOING:
-            RT_LOGE("seek %lld us", usec);
-            mPlayerCtx->mWantSeekTimeUs = -1;
+            RT_LOGE("seek %lld ms", usec/1000);
+            // mPlayerCtx->mWantSeekTimeUs = -1;
             mPlayerCtx->mSaveSeekTimeUs = usec;
             break;
           default:
-            RT_LOGE("seek %lld us", usec);
+            RT_LOGE("seek %lld ms", usec/1000);
             mPlayerCtx->mSaveSeekTimeUs = -1;
             mPlayerCtx->mWantSeekTimeUs = usec;
             postSeekIfNecessary();
@@ -403,18 +418,19 @@ RT_RET RTNDKNodePlayer::postSeekIfNecessary() {
     }
     // mini seek margin is 500ms
     INT64 seekDelta = RT_ABS(mPlayerCtx->mWantSeekTimeUs - mPlayerCtx->mCurTimeUs);
-    RT_LOGE("seek want seek %lld us, mCurTimeUs: %lld us",
+    RT_LOGE("mWantSeekTimeUs: %lld us, mCurTimeUs: %lld us",
              mPlayerCtx->mWantSeekTimeUs, mPlayerCtx->mCurTimeUs);
-    if (seekDelta > 500*100) {
+    if (seekDelta > 500*1000) {
         // async seek message
-        RTMessage* msg = new RTMessage(RT_MEDIA_SEEK_ASYNC, 0, mPlayerCtx->mWantSeekTimeUs, this);
-        mPlayerCtx->mLooper->flush_message(RT_MEDIA_SEEK_ASYNC);
-        mPlayerCtx->mLooper->post(msg, 0);
+        // RTMessage* msg = new RTMessage(RT_MEDIA_SEEK_ASYNC, 0, mPlayerCtx->mWantSeekTimeUs, this);
+        // mPlayerCtx->mLooper->flush_message(RT_MEDIA_SEEK_ASYNC);
+        // mPlayerCtx->mLooper->post(msg, 0);
         mPlayerCtx->mSeekFlag = RT_SEEK_DOING;
-        RT_LOGE("seek seekDelta %lld us mPlayerCtx: %p mSeekFlag: %d", seekDelta, mPlayerCtx, mPlayerCtx->mSeekFlag);
+    } else {
+        mPlayerCtx->mSaveSeekTimeUs = -1;
     }
 
-    mPlayerCtx->mWantSeekTimeUs = -1;
+    // mPlayerCtx->mWantSeekTimeUs = -1;
     mPlayerCtx->mSaveSeekTimeUs = -1;
 
     return err;
@@ -478,19 +494,23 @@ RT_RET RTNDKNodePlayer::onSeekTo(INT64 usec) {
         return err;
     }
 
+    // nodebus be operated by multithread
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+
     // workflow: pause flush (cache maybe) start
-    #if 0
+    setCurState(RT_STATE_PAUSED);
     mNodeBus->excuteCommand(RT_NODE_CMD_PAUSE);
     mNodeBus->excuteCommand(RT_NODE_CMD_FLUSH);
-    mNodeBus->excuteCommand(RT_NODE_CMD_START);
-    #else
     mPlayerCtx->mCmdOptions->clear();
     mPlayerCtx->mCmdOptions->setInt64(kKeySeekTimeUs, usec);
     mNodeBus->excuteCommand(RT_NODE_CMD_SEEK, mPlayerCtx->mCmdOptions);
+    mNodeBus->excuteCommand(RT_NODE_CMD_START);
+
+    // post RT_MEDIA_SEEK_COMPLETE
     msg = new RTMessage(RT_MEDIA_SEEK_COMPLETE, RT_NULL, this);
     mPlayerCtx->mLooper->post(msg, 0);
     RT_LOGE("done, seek to target:%lldms", usec/1000);
-    #endif
+
     return err;
 }
 
@@ -499,6 +519,10 @@ RT_RET RTNDKNodePlayer::onPlaybackDone() {
     if (RT_OK != err) {
         return err;
     }
+
+    // nodebus be operated by multithread
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+
     // workflow: pause flush (cache maybe) reset
     mNodeBus->excuteCommand(RT_NODE_CMD_PAUSE);
     mNodeBus->excuteCommand(RT_NODE_CMD_FLUSH);
@@ -570,6 +594,7 @@ void   RTNDKNodePlayer::onMessageReceived(struct RTMessage* msg) {
         mPlayerCtx->mSeekFlag = RT_SEEK_NO;
         RT_LOGD("seek complete mPlayerCtx: %p mSeekFlag: %d", mPlayerCtx, mPlayerCtx->mSeekFlag);
         mPlayerCtx->mCurTimeUs = mPlayerCtx->mWantSeekTimeUs;
+        setCurState(RT_STATE_STARTED);
         postSeekIfNecessary();
         break;
       case RT_MEDIA_SET_VIDEO_SIZE:
@@ -583,7 +608,7 @@ void   RTNDKNodePlayer::onMessageReceived(struct RTMessage* msg) {
       case RT_MEDIA_SUBTITLE_DATA:
         break;
       case RT_MEDIA_SEEK_ASYNC:
-        onSeekTo(msg->mData.mArgU64);
+        // onSeekTo(msg->mData.mArgU64);
         break;
       default:
         break;
@@ -665,10 +690,23 @@ RT_RET RTNDKNodePlayer::startAudioPlayerProc() {
 
     while (mPlayerCtx->mDeliverThread->getState() == THREAD_LOOP) {
         RT_BOOL validAudioPkt = RT_FALSE;
+
+        // nodebus be operated by multithread
+        RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+
         UINT32 curState = this->getCurState();
         if (RT_STATE_STARTED != curState) {
             RtTime::sleepMs(2);
             continue;
+        }
+
+        /**
+         * 1. do seek operation in runTask
+         */
+        if (mPlayerCtx->mWantSeekTimeUs > 0) {
+            RT_LOGE("seekdebug in runTask wantSeek = %lldms", mPlayerCtx->mWantSeekTimeUs/1000);
+            this->onSeekTo(mPlayerCtx->mWantSeekTimeUs);
+            mPlayerCtx->mWantSeekTimeUs = -1;
         }
 
         /**

@@ -50,6 +50,7 @@ typedef struct _FFNodeDemuxerCtx {
     RtThread           *mThread;
     RTMsgLooper        *mEventLooper;
 
+    RT_NODE_STATE       mNodeState;
     UINT32              mEosFlag;
     UINT32              mCountPull;
     UINT32              mCountPush;
@@ -68,6 +69,14 @@ void* ff_demuxer_loop(void* ptr_node) {
     FFNodeDemuxer* nodeDemuxer = reinterpret_cast<FFNodeDemuxer*>(ptr_node);
     nodeDemuxer->runTask();
     return RT_NULL;
+}
+
+FFNodeDemuxerCtx* get_demuxer_ctx(void* ptr_ctx) {
+    FFNodeDemuxerCtx* demuxer_ctx = RT_NULL;
+    if (RT_NULL != ptr_ctx) {
+        demuxer_ctx = reinterpret_cast<FFNodeDemuxerCtx*>(ptr_ctx);
+    }
+    return demuxer_ctx;
 }
 
 FFNodeDemuxer::FFNodeDemuxer() {
@@ -104,7 +113,7 @@ INT32 updateDefaultTrack(FAFormatContext* fa_ctx, RTTrackType tType) {
 
 RT_RET FFNodeDemuxer::init(RtMetaData *metaData) {
     RT_RET ret = RT_OK;
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
 
     const char *uri;
     metaData->findCString(kKeyFormatUri, &uri);
@@ -124,14 +133,17 @@ RT_RET FFNodeDemuxer::init(RtMetaData *metaData) {
     ret = ctx->mSource->init(metaData);
     if (RT_OK != ret) {
         RT_LOGE("media packet source init failed! err: %d", ret);
+        ctx->mNodeState = NODE_STATE_ERROR;
         return ret;
+    } else {
+        ctx->mNodeState = NODE_STATE_IDLE;
     }
 
     return ret;
 }
 
 RT_RET FFNodeDemuxer::release() {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     RT_ASSERT(RT_NULL != ctx);
 
     if (ctx->mThread != RT_NULL) {
@@ -153,12 +165,13 @@ RT_RET FFNodeDemuxer::release() {
     rt_safe_delete(ctx->mSource);
     rt_safe_free(ctx);
 
+    ctx->mNodeState = NODE_STATE_ERROR;
     return RT_OK;
 }
 
 /* read/pull RTPacket from NodeDemuxer */
 RT_RET FFNodeDemuxer::pullBuffer(RTMediaBuffer** mediaBuf) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     RT_ASSERT(RT_NULL != ctx);
     RT_ASSERT(RT_NULL != mediaBuf);
 
@@ -168,6 +181,12 @@ RT_RET FFNodeDemuxer::pullBuffer(RTMediaBuffer** mediaBuf) {
     if (!meta->findInt32(kKeyCodecType, reinterpret_cast<INT32*>(&type))) {
         RT_LOGE("track  type is unset!!");
         return RT_ERR_UNKNOWN;
+    }
+
+    if (NODE_STATE_STARTED != ctx->mNodeState) {
+        // RT_LOGE("seekDebug, sorry, node not started....");
+        RtTime::sleepUs(2*1000);
+        return RT_ERR_LIST_EMPTY;
     }
 
     pkt = ctx->mSource->dequeuePacket(type);
@@ -183,6 +202,7 @@ RT_RET FFNodeDemuxer::pullBuffer(RTMediaBuffer** mediaBuf) {
             }
             return RT_ERR_UNKNOWN;
         }
+
         RT_LOGD_IF(DEBUG_FLAG, "RTPacket(ptr=0x%p, size=%d) MediaBuffer=0x%p type: %d mFuncFree: %p",
                     pkt->mRawPtr, pkt->mSize, *mediaBuf, type, pkt->mFuncFree);
         (*mediaBuf)->setData(pkt->mData, pkt->mSize, pkt->mFuncFree);
@@ -208,6 +228,9 @@ RT_RET FFNodeDemuxer::runCmd(RT_NODE_CMD cmd, RtMetaData *metaData) {
     case RT_NODE_CMD_START:
         this->onStart();
         break;
+    case RT_NODE_CMD_FLUSH:
+        this->onFlush();
+        break;
     case RT_NODE_CMD_STOP:
         this->onStop();
         break;
@@ -230,7 +253,9 @@ RT_RET FFNodeDemuxer::runCmd(RT_NODE_CMD cmd, RtMetaData *metaData) {
 }
 
 RT_RET FFNodeDemuxer::onSeek(RtMetaData *options) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
     INT64 seekTimeUs = 0ll;
     if (!options->findInt64(kKeySeekTimeUs, &seekTimeUs)) {
         RT_LOGE("seek timeUs get failed, seek failed");
@@ -239,17 +264,21 @@ RT_RET FFNodeDemuxer::onSeek(RtMetaData *options) {
 
     ctx->mNeedSeek   = 1;
     ctx->mSeekTimeUs = seekTimeUs;
+    ctx->mNodeState  = NODE_STATE_SEEKING;
+    RT_LOGE("ctx->mNeedSeek = %d", ctx->mNeedSeek);
     return RT_OK;
 }
 
 RT_RET FFNodeDemuxer::setEventLooper(RTMsgLooper* eventLooper) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
     ctx->mEventLooper     = eventLooper;
     return RT_OK;
 }
 
 RtMetaData* FFNodeDemuxer::queryFormat(RTPortType port) {
-    FFNodeDemuxerCtx* ctx  = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx  = get_demuxer_ctx(mNodeContext);
     RtMetaData*       meta = RT_NULL;
 
     switch (port) {
@@ -270,12 +299,12 @@ RTNodeStub* FFNodeDemuxer::queryStub() {
 }
 
 INT32 FFNodeDemuxer::countTracks(RTTrackType tType) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     return fa_format_count_tracks(ctx->mFormatCtx, tType);
 }
 
 INT32 FFNodeDemuxer::selectTrack(INT32 index, RTTrackType tType) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     RT_ASSERT(RT_NULL != ctx);
 
     switch (tType) {
@@ -296,7 +325,7 @@ INT32 FFNodeDemuxer::selectTrack(INT32 index, RTTrackType tType) {
 }
 
 RtMetaData* FFNodeDemuxer::queryTrackMeta(UINT32 index, RTTrackType tType) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     RT_ASSERT(RT_NULL != ctx);
 
     RTTrackParms  track_par;
@@ -308,7 +337,7 @@ RtMetaData* FFNodeDemuxer::queryTrackMeta(UINT32 index, RTTrackType tType) {
 }
 
 INT32 FFNodeDemuxer::queryTrackUsed(RTTrackType tType) {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     RT_ASSERT(RT_NULL != ctx);
 
     INT32 used_idx = -1;
@@ -330,7 +359,7 @@ INT32 FFNodeDemuxer::queryTrackUsed(RTTrackType tType) {
 
 INT64 FFNodeDemuxer::queryDuration() {
     INT64 duration = 0;
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     if ((RT_NULL != ctx) && (RT_NULL != ctx->mFormatCtx)) {
         duration = fa_format_get_duraton(ctx->mFormatCtx);
     }
@@ -339,18 +368,33 @@ INT64 FFNodeDemuxer::queryDuration() {
 
 RT_RET FFNodeDemuxer::onStart() {
     RT_RET            err = RT_OK;
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
-    ctx->mEosFlag = RT_FALSE;
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
+    RT_LOGD("call, onStart");
+
+    switch (ctx->mNodeState) {
+      case NODE_STATE_IDLE:
+      case NODE_STATE_PAUSED:
+        ctx->mEosFlag   = RT_FALSE;
+        ctx->mNodeState = NODE_STATE_STARTED;
+        break;
+      default:
+        RT_LOGE("call onStart(), invalid state:%d", ctx->mNodeState);
+    }
+
     return err;
 }
 
 RT_RET FFNodeDemuxer::onStop() {
-    RT_LOGD_IF(DEBUG_FLAG, "call, stop");
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
+    RT_LOGD("call, onStop");
     ctx->mThread->requestInterruption();
     ctx->mSource->stop();
     ctx->mThread->join();
-    ctx->mNeedSeek = RT_TRUE;
+    ctx->mNeedSeek   = 1;
     ctx->mSeekTimeUs = 0ll;
 
     // flush all packets in the caches
@@ -361,12 +405,24 @@ RT_RET FFNodeDemuxer::onStop() {
 }
 
 RT_RET FFNodeDemuxer::onPause() {
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
+    switch (ctx->mNodeState) {
+      case NODE_STATE_IDLE:
+      case NODE_STATE_STARTED:
+        ctx->mNodeState = NODE_STATE_PAUSED;
+        break;
+      default:
+        RT_LOGE("call onPause(), invalid state:%s", ctx->mNodeState);
+    }
+
     return RT_OK;
 }
 
 RT_RET FFNodeDemuxer::onReset() {
     RT_LOGD_IF(DEBUG_FLAG, "call, reset");
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
     RT_ASSERT(RT_NULL != ctx);
 
     // @review: code redundancy but logically reasonable
@@ -381,35 +437,41 @@ RT_RET FFNodeDemuxer::onReset() {
 }
 
 RT_RET FFNodeDemuxer::onFlush() {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
     ctx->mSource->flush();
-    RT_LOGD_IF(DEBUG_FLAG, "done, flush");
+    RT_LOGD("done, flush");
     return RT_OK;
 }
 
 RT_RET FFNodeDemuxer::onPrepare() {
-    FFNodeDemuxerCtx* ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
     ctx->mThread->start();
     return RT_OK;
 }
 
 RT_RET FFNodeDemuxer::runTask() {
-    FFNodeDemuxerCtx    *ctx = reinterpret_cast<FFNodeDemuxerCtx*>(mNodeContext);
+    FFNodeDemuxerCtx    *ctx = get_demuxer_ctx(mNodeContext);
+    RT_ASSERT(RT_NULL != ctx);
+
     void                *raw_pkt = RT_NULL;
     INT32                err = 0;
     RTPacket            *rt_pkt = RT_NULL;
 
-
     RT_LOGD_IF(DEBUG_FLAG, "task begin");
     while (THREAD_LOOP == ctx->mThread->getState()) {
         if (ctx->mNeedSeek > 0) {
-            RT_LOGD("do seek, seek to %lld us", ctx->mSeekTimeUs);
+            RT_LOGD("do seek, seek to %lld ms", ctx->mSeekTimeUs/1000);
             int flags = 0;
             fa_format_seek_to(ctx->mFormatCtx, -1, ctx->mSeekTimeUs, flags);
             onFlush();
             RT_LOGD("flush compelete");
-            ctx->mEosFlag = RT_FALSE;
-            ctx->mNeedSeek = 0;
+            ctx->mEosFlag   = RT_FALSE;
+            ctx->mNeedSeek  = 0;
+            ctx->mNodeState = NODE_STATE_STARTED;
         }
 
         if (!ctx->mEosFlag) {

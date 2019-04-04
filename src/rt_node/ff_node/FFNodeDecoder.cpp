@@ -334,10 +334,20 @@ RTNodeStub* FFNodeDecoder::queryStub() {
 }
 
 RT_RET FFNodeDecoder::runTask() {
-    RTMediaBuffer *input = RT_NULL;
+    RTMediaBuffer *input  = RT_NULL;
     RTMediaBuffer *output = RT_NULL;
     while (THREAD_LOOP == mProcThread->getState()) {
         RT_RET err = RT_OK;
+
+        if (!mStarted) {
+            if (input) {
+                input->release();
+                input = RT_NULL;
+            }
+            RtTime::sleepMs(5);
+            continue;
+        }
+
         if (!input) {
             RtMutex::RtAutolock autoLock(mLockPacketQ);
             RT_DequeEntry entry = deque_pop(mPacketQ);
@@ -350,6 +360,7 @@ RT_RET FFNodeDecoder::runTask() {
         }
 
         if (!input || !output || !mStarted) {
+            // when seek to target time, input packet may be old time.
             RtTime::sleepMs(5);
             continue;
         }
@@ -424,7 +435,7 @@ RT_RET FFNodeDecoder::onStart() {
 }
 
 RT_RET FFNodeDecoder::onPause() {
-    RT_LOGD("pause");
+    RT_LOGD("call, pause");
     mStarted = RT_FALSE;
     return RT_OK;
 }
@@ -444,18 +455,18 @@ RT_RET FFNodeDecoder::onReset() {
 }
 
 RT_RET FFNodeDecoder::onPrepare() {
-    RT_LOGD("call, prepare.");
+    RT_LOGD("call, prepare");
     mProcThread->start();
     return RT_OK;
 }
 
 RT_RET FFNodeDecoder::onFlush() {
-    RT_LOGD("flush");
+    RT_LOGD("call, flush");
     RT_RET ret = RT_OK;
     mStarted = RT_FALSE;
     while (deque_size(mPacketQ) > 0) {
         RtMutex::RtAutolock autoLock(mLockPacketQ);
-        RTMediaBuffer *pkt = RT_NULL;
+        RTMediaBuffer *pkt  = RT_NULL;
         RT_DequeEntry entry = deque_pop(mPacketQ);
         if (entry.data) {
             pkt = reinterpret_cast<RTMediaBuffer *>(entry.data);
@@ -467,7 +478,7 @@ RT_RET FFNodeDecoder::onFlush() {
     while (deque_size(mFrameQ) > 0) {
         RtMutex::RtAutolock autoLock(mLockFrameQ);
         RTMediaBuffer *frame = RT_NULL;
-        RT_DequeEntry entry = deque_pop(mFrameQ);
+        RT_DequeEntry entry  = deque_pop(mFrameQ);
         if (entry.data) {
             frame = reinterpret_cast<RTMediaBuffer *>(entry.data);
         }

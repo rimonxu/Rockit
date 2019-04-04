@@ -56,12 +56,11 @@ void player_utils_dispatch_cmd(RTNDKMediaPlayer* player) {
     int32_t cmd = RtTime::randInt()%PC_CMD_MAX;
     int64_t duration = 0;
     int64_t position = 0;
+    player->getCurrentPosition(&position);
+    player->getDuration(&duration);
     switch (cmd) {
       case PC_CMD_NOP:
       case PC_CMD_TIME:
-        player->getCurrentPosition(&position);
-        player->getDuration(&duration);
-        RT_LOGD("position=%lldms; duration=%lldms", position/1000, duration/1000);
         RtTime::sleepMs(500);
         break;
       case PC_CMD_PAUSE:
@@ -77,9 +76,13 @@ void player_utils_dispatch_cmd(RTNDKMediaPlayer* player) {
         player->start();
         break;
       case PC_CMD_SEEK:
-        player->seekTo(position + 5 * 1000 * 1000);
-        player->seekTo(position + 6 * 1000 * 1000);
-        player->seekTo(position + 7 * 1000 * 1000);
+        player->getCurrentPosition(&position);
+        player->getDuration(&duration);
+        if ((position + 20*1000*1000) > duration) {
+            position = 0;
+        }
+        player->seekTo(position + 10 * 1000 * 1000);
+        RtTime::sleepMs(5*1000);
         break;
       case PC_CMD_STOP:
         player->stop();
@@ -93,8 +96,9 @@ void player_utils_dispatch_cmd(RTNDKMediaPlayer* player) {
         cmd = PC_CMD_MAX;
         break;
     }
-    RT_LOGD("%s TESTCASE has done....", pc_cmd_names[cmd].name);
-    RtTime::sleepMs(RtTime::randInt()%2000);
+    RT_LOGD("%s has done, position=%lld ms; duration=%lld ms", \
+             position/1000, duration/1000, pc_cmd_names[cmd].name);
+    RtTime::sleepMs(RtTime::randInt()%2000 + 500);
 }
 
 void player_utils_help(const char* bin_name) {
