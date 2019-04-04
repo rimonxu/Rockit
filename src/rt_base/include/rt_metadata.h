@@ -67,8 +67,9 @@ class RtMetaData {
     void dumpToLog() const;
 
  private:
-    struct typed_data;
-    RtHashTable *mHashTable;
+    struct               typed_data;
+    RtHashTable         *mHashTable;
+    RtMutex             *mLock;
 };
 
 #endif  // SRC_RT_BASE_INCLUDE_RT_METADATA_H_

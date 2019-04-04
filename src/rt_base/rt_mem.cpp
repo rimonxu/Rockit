@@ -49,10 +49,13 @@ void *rt_mem_malloc(const char *caller, size_t size) {
     UINT32 size_align = MEM_ALIGNED(size);
     UINT32 size_real = (debug & MEM_EXT_ROOM) ? (size_align + 2 * MEM_ALIGN) :
                        (size_align);
+    INT32 err = 0;
     void *ptr = NULL;
 
-    rt_os_malloc(&ptr, MEM_ALIGN, size_real);
-
+    err = rt_os_malloc(&ptr, MEM_ALIGN, size_real);
+    if (err) {
+        return NULL;
+    }
     // TODO(debug) : debug memory
     _gMemService.addNode(caller, ptr, size);
 

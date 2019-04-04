@@ -72,12 +72,15 @@ struct RtMetaData::typed_data {
 };
 
 RtMetaData::RtMetaData() {
+    mLock = new RtMutex();
+    RT_ASSERT(RT_NULL != mLock);
     mHashTable = rt_hash_table_create(20, hash_ptr_func, hash_ptr_compare);
 }
 
 RtMetaData::~RtMetaData() {
     clear();
     rt_hash_table_destory(mHashTable);
+    rt_safe_delete(mLock);
     mHashTable = NULL;
 }
 
@@ -229,6 +232,7 @@ __FAILED:
 
 RT_BOOL RtMetaData::setData(
         UINT32 key, UINT32 type, const void *data, UINT32 size) {
+    RtMutex::RtAutolock autoLock(mLock);
     bool overwrote_existing = true;
     typed_data *item = NULL;
     item = reinterpret_cast<typed_data *>(
@@ -256,6 +260,7 @@ RT_BOOL RtMetaData::findData(
         UINT32 *type,
         const void **data,
         UINT32 *size) const {
+    RtMutex::RtAutolock autoLock(mLock);
     typed_data *item = NULL;
 
     item = reinterpret_cast<typed_data *>(
@@ -348,7 +353,6 @@ void *RtMetaData::typed_data::allocateStorage(UINT32 size) {
     if (usesReservoir()) {
         return &u.reservoir;
     }
-
     u.ext_data = rt_malloc_size(INT8, mSize);
     if (u.ext_data == NULL) {
         RT_LOGE("Couldn't allocate %zu bytes for item", size);

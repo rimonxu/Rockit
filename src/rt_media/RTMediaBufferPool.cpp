@@ -114,15 +114,17 @@ RT_RET RTMediaBufferPool::acquireBuffer(
     RtMutex::RtAutolock autoLock(mBufferList->mLock);
 
     while (1) {
+        *out = RT_NULL;
         RTMediaBuffer *buffer = RT_NULL;
-
-        if (array_list_get_size(mBufferList->mBuffers) == 0) {
+        RTMediaBuffer *it = RT_NULL;
+        INT32 count = array_list_get_size(mBufferList->mBuffers);
+        if (count == 0) {
             RT_LOGE("pool is empty! no buffer acquire.");
             return RT_ERR_LIST_EMPTY;
         }
-        for (UINT32 idx = 0; idx < array_list_get_size(mBufferList->mBuffers); idx++) {
-            RTMediaBuffer *it = reinterpret_cast<RTMediaBuffer *>
-                                    (array_list_get_data(mBufferList->mBuffers, idx));
+        for (UINT32 idx = 0; idx < count; idx++) {
+            it = reinterpret_cast<RTMediaBuffer *>
+                     (array_list_get_data(mBufferList->mBuffers, idx));
             if (it && it->refsCount() == 0
                   && it->getSize() >= request_size) {
                 buffer = it;
@@ -154,7 +156,7 @@ void RTMediaBufferPool::signalBufferReturned(RTMediaBuffer *buffer) {
 
 RT_RET RTMediaBufferPool::releaseAllBuffers() {
     RT_RET          ret = RT_OK;
-
+    RtMutex::RtAutolock autoLock(mBufferList->mLock);
     UINT32 size = array_list_get_size(mBufferList->mBuffers);
     for (UINT32 idx = 0; idx < size; idx++) {
         RTMediaBuffer *buffer = reinterpret_cast<RTMediaBuffer *>

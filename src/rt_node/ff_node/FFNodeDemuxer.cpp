@@ -413,7 +413,7 @@ RT_RET FFNodeDemuxer::runTask() {
         }
 
         if (!ctx->mEosFlag) {
-            rt_pkt = ctx->mSource->dequeueUnusedPacket();
+            rt_pkt = ctx->mSource->dequeueUnusedPacket(RT_TRUE);
             if (rt_pkt != RT_NULL) {
                 err = fa_format_packet_read(ctx->mFormatCtx, &raw_pkt);
                 if (RT_ERR_END_OF_STREAM == err) {
