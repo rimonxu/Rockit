@@ -54,8 +54,7 @@ class RTPktSourceLocal : public RTPktSourceBase {
     RTMediaCache       *mAudioCache;
     RT_Deque           *mVideoPktQ;
     RT_Deque           *mAudioPktQ;
-    RtMutex            *mVideoQLock;
-    RtMutex            *mAudioQLock;
+    RtMutex            *mQueueLock;
     RtCondition        *mCondition;
     RtMutex            *mWaitLock;
 

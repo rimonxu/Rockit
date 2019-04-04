@@ -39,11 +39,8 @@ RTPktSourceLocal::RTPktSourceLocal()
         : mVideoPktQ(RT_NULL),
           mAudioPktQ(RT_NULL),
           mMaxCacheSize(HIGH_WATER_CACHE_SIZE) {
-    mVideoQLock = new RtMutex();
-    RT_ASSERT(RT_NULL != mVideoQLock);
-
-    mAudioQLock = new RtMutex();
-    RT_ASSERT(RT_NULL != mAudioQLock);
+    mQueueLock = new RtMutex();
+    RT_ASSERT(RT_NULL != mQueueLock);
 
     mVideoCache = new RTMediaCache();
     RT_ASSERT(RT_NULL != mVideoCache);
@@ -100,17 +97,19 @@ RT_RET RTPktSourceLocal::init(RtMetaData *config) {
 RT_RET RTPktSourceLocal::release() {
     RT_RET ret = RT_OK;
     flush();
-    if (mVideoPktQ) {
-        deque_destory(&mVideoPktQ);
+    {
+        RtMutex::RtAutolock autoLock(mQueueLock);
+        if (mVideoPktQ) {
+            deque_destory(&mVideoPktQ);
+        }
+        if (mAudioPktQ) {
+            deque_destory(&mAudioPktQ);
+        }
+        rt_safe_delete(mVideoCache);
+        rt_safe_delete(mAudioCache);
     }
-    if (mAudioPktQ) {
-        deque_destory(&mAudioPktQ);
-    }
+    rt_safe_delete(mQueueLock);
 
-    rt_safe_delete(mVideoQLock);
-    rt_safe_delete(mAudioQLock);
-    rt_safe_delete(mVideoCache);
-    rt_safe_delete(mAudioCache);
     rt_safe_delete(mCondition);
     rt_safe_delete(mWaitLock);
 
@@ -131,9 +130,10 @@ RT_RET RTPktSourceLocal::stop() {
 }
 
 RT_RET RTPktSourceLocal::flush() {
-    RTPacket *pkt;
+    RTPacket *pkt = RT_NULL;
+    RtMutex::RtAutolock autoLock(mQueueLock);
     while (mVideoPktQ && deque_size(mVideoPktQ) > 0) {
-        RtMutex::RtAutolock autoLock(mVideoQLock);
+        pkt = RT_NULL;
         RT_DequeEntry entry = deque_pop(mVideoPktQ);
         if (entry.data) {
             pkt = reinterpret_cast<RTPacket *>(entry.data);
@@ -146,7 +146,7 @@ RT_RET RTPktSourceLocal::flush() {
     }
 
     while (mAudioPktQ && deque_size(mAudioPktQ) > 0) {
-        RtMutex::RtAutolock autoLock(mAudioQLock);
+        pkt = RT_NULL;
         RT_DequeEntry entry = deque_pop(mAudioPktQ);
         if (entry.data) {
             pkt = reinterpret_cast<RTPacket *>(entry.data);
@@ -161,15 +161,18 @@ RT_RET RTPktSourceLocal::flush() {
 }
 
 INT32 RTPktSourceLocal::getTotalCacheSize() {
+    RtMutex::RtAutolock autoLock(mQueueLock);
     INT32 totalSize = mVideoCache->mCurCacheSize + mAudioCache->mCurCacheSize;
     return totalSize;
 }
 
 INT64 RTPktSourceLocal::getAudioCacheDuration() {
+    RtMutex::RtAutolock autoLock(mQueueLock);
     return mAudioCache->mCurCacheDuration;
 }
 
 INT64 RTPktSourceLocal::getVideoCacheDuration() {
+    RtMutex::RtAutolock autoLock(mQueueLock);
     return mVideoCache->mCurCacheDuration;
 }
 
@@ -203,10 +206,10 @@ RTPacket *RTPktSourceLocal::dequeueUnusedPacket(RT_BOOL block) {
 }
 
 RT_RET RTPktSourceLocal::queuePacket(RTPacket *pkt) {
+    RtMutex::RtAutolock autoLock(mQueueLock);
     RT_RET ret = RT_OK;
     switch (pkt->mType) {
     case RTTRACK_TYPE_VIDEO: {
-        RtMutex::RtAutolock autoLock(mVideoQLock);
         ret = deque_push(mVideoPktQ, pkt);
         if (ret == RT_OK) {
             mVideoCache->mCurCacheCount = deque_size(mVideoPktQ);
@@ -215,7 +218,6 @@ RT_RET RTPktSourceLocal::queuePacket(RTPacket *pkt) {
         }
     } break;
     case RTTRACK_TYPE_AUDIO: {
-        RtMutex::RtAutolock autoLock(mAudioQLock);
         ret = deque_push(mAudioPktQ, pkt);
         if (ret == RT_OK) {
             mAudioCache->mCurCacheCount = deque_size(mAudioPktQ);
@@ -235,10 +237,10 @@ RT_RET RTPktSourceLocal::queuePacket(RTPacket *pkt) {
 }
 
 RTPacket *RTPktSourceLocal::dequeuePacket(RTTrackType type, RT_BOOL block) {
+    RtMutex::RtAutolock autoLock(mQueueLock);
     RTPacket *pkt = RT_NULL;
     switch (type) {
     case RTTRACK_TYPE_VIDEO: {
-        RtMutex::RtAutolock autoLock(mVideoQLock);
         if (deque_size(mVideoPktQ) > 0) {
             RT_DequeEntry entry = deque_pop(mVideoPktQ);
             if (entry.data) {
@@ -250,7 +252,6 @@ RTPacket *RTPktSourceLocal::dequeuePacket(RTTrackType type, RT_BOOL block) {
         }
     } break;
     case RTTRACK_TYPE_AUDIO: {
-        RtMutex::RtAutolock autoLock(mAudioQLock);
         if (deque_size(mAudioPktQ) > 0) {
             RT_DequeEntry entry = deque_pop(mAudioPktQ);
             if (entry.data) {
