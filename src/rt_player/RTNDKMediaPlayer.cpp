@@ -22,6 +22,7 @@
 #include "RTNDKNodePlayer.h"   // NOLINT
 #include "RTNDKMediaPlayer.h"  // NOLINT
 #include "rt_string_utils.h"   // NOLINT
+#include "rt_message.h"        // NOLINT
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -42,14 +43,18 @@ typedef struct RtNDKPlayerContext {
     int32_t     mLooping;
     const char* mUri;
     const char* mHeaders;
+    RtMutex*          mCmdLock;
     RTNDKNodePlayer*  mNodePlayer;
 } RTNDKPlayerContext;
 
 rt_status checkRuntime(RTNDKPlayerContext* ctx, const char* caller) {
-    if ((RT_NULL == ctx) || (RT_NULL == ctx->mNodePlayer)) {
-        RT_LOGE("fail to %s, context in null", caller);
-        return RTE_NO_MEMORY;
-    }
+    do {
+        if ((RT_NULL == ctx) || (RT_NULL == ctx->mNodePlayer)) {
+            RT_LOGE("fail to %s, context in null", caller);
+            return RTE_NO_MEMORY;
+        }
+    } while (0);
+
     return RTE_NO_ERROR;
 }
 
@@ -60,21 +65,28 @@ RTNDKMediaPlayer::RTNDKMediaPlayer() {
     mPlayerCtx              = rt_malloc(RTNDKPlayerContext);
     rt_memset(mPlayerCtx, 0, sizeof(RTNDKPlayerContext));
     mPlayerCtx->mNodePlayer = new RTNDKNodePlayer();
+    mPlayerCtx->mCmdLock    = new RtMutex();
 }
 
 RTNDKMediaPlayer::~RTNDKMediaPlayer() {
     rt_safe_delete(mPlayerCtx->mNodePlayer);
+    rt_safe_delete(mPlayerCtx->mCmdLock);
     rt_safe_free(mPlayerCtx);
     RT_LOGD("done, ~RTNDKMediaPlayer()");
 }
 
-rt_status RTNDKMediaPlayer::setUID(uid_t uid) {
-    rt_status err = checkRuntime(mPlayerCtx, "setUID");
+rt_status RTNDKMediaPlayer::initCheck() {
+    rt_status err = checkRuntime(mPlayerCtx, "initCheck");
     if (RTE_NO_ERROR != err) {
         return err;
     }
 
-    mPlayerCtx->mUid = uid;
+    do {
+        mPlayerCtx->mState = mPlayerCtx->mNodePlayer->getCurState();
+        if ((RT_NULL != mPlayerCtx) && (mPlayerCtx->mState >= RT_STATE_INITIALIZED)) {
+            err = RTE_NO_ERROR;
+        }
+    } while (0);
     return err;
 }
 
@@ -83,6 +95,9 @@ rt_status RTNDKMediaPlayer::setDataSource(const char *url, const char *headers) 
     if (RTE_NO_ERROR != err) {
         return err;
     }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
 
     mPlayerCtx->mUri     = url;
     mPlayerCtx->mHeaders = headers;
@@ -96,8 +111,8 @@ rt_status RTNDKMediaPlayer::setDataSource(const char *url, const char *headers) 
         rt_str_snprintf(setting.mUserAgent, sizeof(setting.mUserAgent), "%s", headers);
     }
 
-    // auto build node bus and initialization
-    err = mPlayerCtx->mNodePlayer->setDataSource(&setting);
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_SET_DATASOURCE, &setting, nullptr);
+    err = mPlayerCtx->mNodePlayer->send("setDataSource", msg);
     if (RTE_NO_ERROR != err) {
         RT_LOGE("setDataSource fail\n");
         return RT_ERR_UNKNOWN;
@@ -111,6 +126,122 @@ rt_status RTNDKMediaPlayer::setDataSource(int fd, int64_t offset, int64_t length
     // @TODO
     // getUri(fd, uri);
     return setDataSource(uri, RT_NULL);
+}
+
+rt_status RTNDKMediaPlayer::prepare() {
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_PREPARE, nullptr, nullptr);
+    err = mPlayerCtx->mNodePlayer->send("prepare", msg);
+    return err;
+}
+
+rt_status RTNDKMediaPlayer::prepareAsync() {
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_PREPARE, nullptr, nullptr);
+    err = mPlayerCtx->mNodePlayer->post("prepareAsync", msg);
+    return err;
+}
+
+rt_status RTNDKMediaPlayer::seekTo(int64_t usec) {
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_SEEKTO, 0, usec);
+    err = mPlayerCtx->mNodePlayer->send("seekTo", msg);
+    return err;
+}
+
+rt_status RTNDKMediaPlayer::start() {
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_START, nullptr, nullptr);
+    err = mPlayerCtx->mNodePlayer->send("start", msg);
+    return err;
+}
+
+rt_status RTNDKMediaPlayer::stop() {
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_STOP, nullptr, nullptr);
+    err = mPlayerCtx->mNodePlayer->send("stop", msg);
+    return err;
+}
+
+rt_status RTNDKMediaPlayer::pause() {
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_PAUSE, nullptr, nullptr);
+    err = mPlayerCtx->mNodePlayer->send("pause", msg);
+    return err;
+}
+
+rt_status RTNDKMediaPlayer::reset() {
+    RT_LOGD("play_ndk reset");
+    int32_t err = initCheck();
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    // The player may run in a multi-threaded environment
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mCmdLock);
+
+    RTMessage* msg = new RTMessage(RT_MEDIA_CMD_RESET, nullptr, nullptr);
+    mPlayerCtx->mNodePlayer->send("reset", msg);
+    return RTE_NO_ERROR;
+}
+
+rt_status RTNDKMediaPlayer::wait(int64_t timeUs) {
+    RT_LOGD("call, wait until playback done, max timetout = %lldms", timeUs/1000);
+    mPlayerCtx->mNodePlayer->wait(timeUs);
+    RT_LOGD("done, playback has done...");
+    return RTE_NO_ERROR;
+}
+
+rt_status RTNDKMediaPlayer::setUID(uid_t uid) {
+    rt_status err = checkRuntime(mPlayerCtx, "setUID");
+    if (RTE_NO_ERROR != err) {
+        return err;
+    }
+
+    mPlayerCtx->mUid = uid;
+    return err;
 }
 
 rt_status RTNDKMediaPlayer::setLooping(int loop) {
@@ -130,100 +261,6 @@ rt_status RTNDKMediaPlayer::setVideoSurfaceTexture(void* bufferProducer) {
 
 rt_status RTNDKMediaPlayer::setVideoSurface(void* surface) {
     return RTE_UNSUPPORTED;
-}
-
-rt_status RTNDKMediaPlayer::initCheck() {
-    rt_status err = checkRuntime(mPlayerCtx, "initCheck");
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-
-    mPlayerCtx->mState = mPlayerCtx->mNodePlayer->getCurState();
-    if ((RT_NULL != mPlayerCtx) && (mPlayerCtx->mState >= RT_STATE_INITIALIZED)) {
-        err = RTE_NO_ERROR;
-    }
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::prepare() {
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    // driver core data-flow
-    RT_LOGD("NodePlayer prepare");
-    mPlayerCtx->mNodePlayer->prepare();
-    mPlayerCtx->mNodePlayer->summary(0);
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::prepareAsync() {
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::seekTo(int64_t usec) {
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    RT_LOGD("NodePlayer seekTo(%lld us)", usec);
-    mPlayerCtx->mUsSeek = usec;
-    mPlayerCtx->mNodePlayer->seekTo(usec);
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::start() {
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    // driver core data-flow
-    RT_LOGD("NodePlayer start");
-    mPlayerCtx->mNodePlayer->start();
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::stop() {
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    RT_LOGD("call, stop");
-    // driver core data-flow
-    mPlayerCtx->mNodePlayer->stop();
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::pause() {
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    RT_LOGD("NodePlayer pause");
-    mPlayerCtx->mNodePlayer->pause();
-    return err;
-}
-
-rt_status RTNDKMediaPlayer::reset() {
-    RT_LOGD("play_ndk reset");
-    int32_t err = initCheck();
-    if (RTE_NO_ERROR != err) {
-        return err;
-    }
-    RT_LOGD("NodePlayer reset");
-    mPlayerCtx->mNodePlayer->reset();
-    return RTE_NO_ERROR;
-}
-
-rt_status RTNDKMediaPlayer::wait(int64_t timeUs) {
-    RT_LOGD("call, wait until playback done, max timetout = %lldms", timeUs/1000);
-    mPlayerCtx->mNodePlayer->wait(timeUs);
-    RT_LOGD("done, playback has done...");
-    return RTE_NO_ERROR;
 }
 
 rt_status RTNDKMediaPlayer::getState() {

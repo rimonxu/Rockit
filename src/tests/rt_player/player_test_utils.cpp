@@ -96,8 +96,8 @@ void player_utils_dispatch_cmd(RTNDKMediaPlayer* player) {
         cmd = PC_CMD_MAX;
         break;
     }
-    RT_LOGD("%s has done, position=%lld ms; duration=%lld ms", \
-             position/1000, duration/1000, pc_cmd_names[cmd].name);
+    RT_LOGD("%14s has done, position=%lld ms; duration=%lld ms", \
+             pc_cmd_names[cmd].name, position/1000, duration/1000);
     RtTime::sleepMs(RtTime::randInt()%2000 + 500);
 }
 

@@ -117,16 +117,3 @@ RT_RET RTMessage::deliver() {
 
     return mHandler->deliverMessage(this);
 }
-
-RT_RET RTMessage::post(INT64 delayUs /* = 0 */) {
-#if TODO_FLAG
-    if (RT_NULL == mLooper) {
-        RT_LOGE("Failed to post message as target looper(%p) is gone!", mLooper);
-        return RT_ERR_BAD;
-    }
-
-    return mLooper->post(this, delayUs);
-#else
-    return RT_ERR_UNIMPLIMENTED;
-#endif
-}

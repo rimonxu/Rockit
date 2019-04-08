@@ -64,12 +64,24 @@ enum RTMediaEvent {
     RT_MEDIA_SEEK_ASYNC        = 14,
 };
 
+enum RTMediaCmd {
+    RT_MEDIA_CMD_NOP              = 512,
+    RT_MEDIA_CMD_SET_DATASOURCE,
+    RT_MEDIA_CMD_PREPARE,
+    RT_MEDIA_CMD_SEEKTO,
+    RT_MEDIA_CMD_START,
+    RT_MEDIA_CMD_STOP,
+    RT_MEDIA_CMD_PAUSE,
+    RT_MEDIA_CMD_RESET,
+    RT_MEDIA_CMD_MAX,
+};
+
 typedef struct _rt_media_event {
     UINT32      cmd;
     const char *name;
 } rt_media_event;
 
-static const rt_media_event mEventNames[] = {
+static const rt_media_event mMediaEvents[] = {
     { RT_MEDIA_NOP,               "EVENT_NOP" },
     { RT_MEDIA_PREPARED,          "EVENT_PREPARED" },
     { RT_MEDIA_PLAYBACK_COMPLETE, "EVENT_COMPLETE" },
@@ -86,12 +98,23 @@ static const rt_media_event mEventNames[] = {
     { RT_MEDIA_SUBTITLE_DATA,     "SUBTITLE_DATA" },
     { RT_MEDIA_SEEK_ASYNC,        "SEEK_ASYNC" },
 };
+
+static const rt_media_event mMediaCmds[] = {
+    { RT_MEDIA_CMD_NOP,               "MEDIA_CMD_NOP" },
+    { RT_MEDIA_CMD_SET_DATASOURCE,    "MEDIA_CMD_SET_DATASOURCE" },
+    { RT_MEDIA_CMD_PREPARE,           "MEDIA_CMD_PREPARE" },
+    { RT_MEDIA_CMD_SEEKTO,            "MEDIA_CMD_SEEKTO" },
+    { RT_MEDIA_CMD_START,             "MEDIA_CMD_START" },
+    { RT_MEDIA_CMD_STOP,              "MEDIA_CMD_STOP" },
+    { RT_MEDIA_CMD_PAUSE,             "MEDIA_CMD_PAUSE" },
+    { RT_MEDIA_CMD_RESET,             "MEDIA_CMD_RESET" },
+};
 #endif
 
 struct RTMsgHandler;
 struct RTMsgLooper;
 
-typedef int (*DoneListener)(void* looper, UINT32 what);
+typedef UINT32 (*DoneListener)(void* looper, UINT32 what, UINT32 err);
 
 struct RTMessage {
     struct RTMsgData {
@@ -118,7 +141,6 @@ struct RTMessage {
     struct RTMsgHandler *getTarget() {
         return mHandler;
     }
-    RT_RET         post(INT64 delayUs = 0);
     RTMessage*     dup();      // performs message deep copy
     const char*    toString();
 

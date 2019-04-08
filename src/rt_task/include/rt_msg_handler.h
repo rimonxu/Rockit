@@ -35,7 +35,7 @@ struct RTMsgHandler {
 
  protected:
     virtual ~RTMsgHandler() {}
-    virtual void onMessageReceived(struct RTMessage* msg) = 0;
+    virtual RT_RET onMessageReceived(struct RTMessage* msg) = 0;
 
  private:
     friend struct RTMessage;  // deliverMessage()

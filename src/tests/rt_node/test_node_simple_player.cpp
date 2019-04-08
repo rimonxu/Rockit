@@ -48,7 +48,7 @@ class SimplePlayer: public RTMsgHandler {
  public:
     SimplePlayer();
     ~SimplePlayer();
-    void onMessageReceived(struct RTMessage* msg);
+    RT_RET onMessageReceived(struct RTMessage* msg);
     RT_RET init(const char *uri);
     RT_RET start();
     RT_RET stop();
@@ -332,8 +332,9 @@ RT_RET SimplePlayer::process() {
     mProcRunning = RT_FALSE;
 }
 
-void SimplePlayer::onMessageReceived(struct RTMessage* msg) {
+RT_RET SimplePlayer::onMessageReceived(struct RTMessage* msg) {
     RT_LOGE("message(msg=%p; what=%d, data=%p) received", msg, msg->getWhat(), msg->getData());
+    return RT_OK;
 }
 
 RTNode* SimplePlayer::createRTNode(RT_NODE_TYPE node_type, BUS_LINE_TYPE ltype) {

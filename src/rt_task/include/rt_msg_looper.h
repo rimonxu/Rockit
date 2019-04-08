@@ -70,6 +70,7 @@ struct RTMsgLooper {
 
  public:
     RtCondition*         mSyncCond;
+    UINT32               mErr;
 };
 
 #ifdef __cplusplus

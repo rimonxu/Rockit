@@ -60,13 +60,14 @@ RT_RET RTMsgLooper::send(struct RTMessage* msg, INT64 delayUs /* = 0 */) {
     return post(msg, delayUs);
 }
 
-int LooperDoneListener(void* looper, UINT32 what) {
+UINT32 LooperDoneListener(void* looper, UINT32 what, UINT32 err) {
     RTMsgLooper* pLooper = reinterpret_cast<RTMsgLooper*>(looper);
     if (RT_NULL != pLooper->mSyncCond) {
         pLooper->mSyncCond->signal();
+        pLooper->mErr  = err;
         RT_LOGE("mSyncCond->signal()");
     }
-    return 0;
+    return err;
 }
 
 RT_RET RTMsgLooper::post(struct RTMessage* msg, INT64 delayUs /* = 0 */) {
@@ -114,6 +115,7 @@ RT_RET RTMsgLooper::post(struct RTMessage* msg, INT64 delayUs /* = 0 */) {
         deque_push_head(mEventQueue, reinterpret_cast<void*>(msg));
 #endif
 
+        mErr = RT_OK;
         if (RT_TRUE == msg->mSync) {
             mExecCond->broadcast();
             mSyncCond->wait(mDataLock);
@@ -122,10 +124,11 @@ RT_RET RTMsgLooper::post(struct RTMessage* msg, INT64 delayUs /* = 0 */) {
         }
     } while (0);
 
-    return RT_OK;
+    return (RT_RET)mErr;
 }
 
 RT_BOOL RTMsgLooper::msgLoop() {
+    RT_RET err = RT_OK;
     while (THREAD_LOOP == mThread->getState()) {
         if (RT_NULL == mThread) {
             return RT_FALSE;
@@ -164,9 +167,9 @@ RT_BOOL RTMsgLooper::msgLoop() {
             if (msg->getTarget() == RT_NULL && mHandler) {
                 msg->setTarget(mHandler);
             }
-            msg->deliver();
+            err = msg->deliver();
             if (RT_NULL != msg->mDoneListener) {
-                 msg->mDoneListener(this, msg->getWhat());
+                 msg->mDoneListener(this, msg->getWhat(), err);
             }
             RT_LOGD_IF(DEBUG_FLAG, "done, deliver message(msg=%p; what=%d)", msg, msg->getWhat());
             rt_safe_delete(msg);

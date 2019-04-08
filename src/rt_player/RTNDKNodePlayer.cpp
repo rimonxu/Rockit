@@ -54,6 +54,7 @@ struct NodePlayerContext {
     INT64               mCurTimeUs;
     INT64               mDuration;
     RTProtocolType      mProtocolType;
+    RTPlayerListener*   mListener;
     RT_CALLBACK_T       mRT_Callback;
     INT32               mRT_Callback_Type;
     void *              mRT_Callback_Data;
@@ -223,8 +224,15 @@ RT_RET RTNDKNodePlayer::prepare() {
     // @TODO: do prepare player
     mNodeBus->excuteCommand(RT_NODE_CMD_PREPARE);
 
+
+    this->onPreparedDone();
+    setCurState(RT_STATE_PREPARED);
+
     RTMessage* msg = new RTMessage(RT_MEDIA_PREPARED, RT_NULL, this);
-    mPlayerCtx->mLooper->send(msg, 0);
+    mPlayerCtx->mLooper->post(msg, 0);
+
+    postSeekIfNecessary();
+
     return RT_OK;
 }
 
@@ -254,7 +262,8 @@ RT_RET RTNDKNodePlayer::start() {
         }
 
         msg = new RTMessage(RT_MEDIA_STARTED, RT_NULL, this);
-        mPlayerCtx->mLooper->send(msg, 0);
+        mPlayerCtx->mLooper->post(msg, 0);
+        this->setCurState(RT_STATE_STARTED);
         break;
       default:
         RTMediaUtil::dumpStateError(curState, __FUNCTION__);
@@ -283,7 +292,8 @@ RT_RET RTNDKNodePlayer::pause() {
         mNodeBus->excuteCommand(RT_NODE_CMD_PAUSE);
 
         msg = new RTMessage(RT_MEDIA_PAUSED, RT_NULL, this);
-        mPlayerCtx->mLooper->send(msg, 0);
+        mPlayerCtx->mLooper->post(msg, 0);
+        this->setCurState(RT_STATE_PAUSED);
         break;
       default:
         RTMediaUtil::dumpStateError(curState, __FUNCTION__);
@@ -307,6 +317,7 @@ RT_RET RTNDKNodePlayer::stop() {
       case RT_STATE_PREPARING:
       case RT_STATE_PREPARED:
       case RT_STATE_STARTED:
+        this->pause();
       case RT_STATE_PAUSED:
       case RT_STATE_COMPLETE:
       case RT_STATE_ERROR:
@@ -317,44 +328,13 @@ RT_RET RTNDKNodePlayer::stop() {
         mNodeBus->excuteCommand(RT_NODE_CMD_STOP);
         mPlayerCtx->mLooper->flush();
         msg = new RTMessage(RT_MEDIA_STOPPED, RT_NULL, this);
-        mPlayerCtx->mLooper->send(msg, 0);
+        mPlayerCtx->mLooper->post(msg, 0);
         mPlayerCtx->mCurTimeUs = 0;
         mPlayerCtx->mDuration  = 0;
+        this->setCurState(RT_STATE_STOPPED);
         break;
     }
 
-    return err;
-}
-
-RT_RET RTNDKNodePlayer::wait(int64_t timeUs) {
-    UINT32 curState = RT_STATE_IDLE;
-    UINT32 loopFlag = 1;
-    timeUs = (timeUs < 1000000)? 20000000:timeUs;
-    do {
-        curState = this->getCurState();
-        switch (curState) {
-          case RT_STATE_IDLE:
-          case RT_STATE_ERROR:
-          case RT_STATE_COMPLETE:
-            loopFlag = 0;
-            break;
-          default:
-            RtTime::sleepMs(5);
-            break;
-        }
-    } while ((1 == loopFlag)&&(mPlayerCtx->mCurTimeUs < timeUs));
-    RT_LOGE("done, ndk-node-player completed playback! current:%lldms, timeout:%lldms",
-             mPlayerCtx->mCurTimeUs/1000, timeUs/1000);
-
-    return RT_OK;
-}
-
-RT_RET RTNDKNodePlayer::setLooping(RT_BOOL loop) {
-    RT_RET err = checkRuntime("setLooping");
-    if (RT_OK != err) {
-        return err;
-    }
-    mPlayerCtx->mLooping = loop;
     return err;
 }
 
@@ -403,6 +383,76 @@ RT_RET RTNDKNodePlayer::seekTo(INT64 usec) {
     return err;
 }
 
+
+RT_RET RTNDKNodePlayer::setLooping(RT_BOOL loop) {
+    RT_RET err = checkRuntime("setLooping");
+    if (RT_OK != err) {
+        return err;
+    }
+    mPlayerCtx->mLooping = loop;
+    return err;
+}
+
+RT_RET RTNDKNodePlayer::setListener(RTPlayerListener* listener) {
+    RT_RET err = checkRuntime("setLooping");
+    if (RT_OK != err) {
+        return err;
+    }
+    if (RT_NULL != mPlayerCtx->mListener) {
+        RT_LOGE("check, mListener isn't NULL!");
+    }
+    mPlayerCtx->mListener = listener;
+}
+
+RT_RET RTNDKNodePlayer::post(const char* caller, RTMessage* msg) {
+    RT_RET err = checkRuntime("post message");
+    if (RT_OK != err) {
+        return err;
+    }
+    UINT32 what = RT_MEDIA_CMD_NOP;
+    if (msg->getWhat() > RT_MEDIA_CMD_NOP) {
+        what = msg->getWhat() - RT_MEDIA_CMD_NOP;
+        RT_LOGE("%24s requested post message:%s", caller, mMediaCmds[what].name);
+        mPlayerCtx->mLooper->post(msg, 0);
+    }
+}
+
+RT_RET RTNDKNodePlayer::send(const char* caller, RTMessage* msg) {
+    RT_RET err = checkRuntime("send message");
+    if (RT_OK != err) {
+        return err;
+    }
+    UINT32 what = RT_MEDIA_CMD_NOP;
+    if (msg->getWhat() > RT_MEDIA_CMD_NOP) {
+        what = msg->getWhat() - RT_MEDIA_CMD_NOP;
+        RT_LOGE("%s requested to send message:%s", caller, mMediaCmds[what].name);
+        mPlayerCtx->mLooper->send(msg, 0);
+    }
+}
+
+RT_RET RTNDKNodePlayer::wait(int64_t timeUs) {
+    UINT32 curState = RT_STATE_IDLE;
+    UINT32 loopFlag = 1;
+    timeUs = (timeUs < 1000000)? 20000000:timeUs;
+    do {
+        curState = this->getCurState();
+        switch (curState) {
+          case RT_STATE_IDLE:
+          case RT_STATE_ERROR:
+          case RT_STATE_COMPLETE:
+            loopFlag = 0;
+            break;
+          default:
+            RtTime::sleepMs(5);
+            break;
+        }
+    } while ((1 == loopFlag)&&(mPlayerCtx->mCurTimeUs < timeUs));
+    RT_LOGE("done, ndk-node-player completed playback! current:%lldms, timeout:%lldms",
+             mPlayerCtx->mCurTimeUs/1000, timeUs/1000);
+
+    return RT_OK;
+}
+
 RT_RET RTNDKNodePlayer::postSeekIfNecessary() {
     RT_RET err = checkRuntime("postSeekIfNecessary");
     if (RT_OK != err) {
@@ -422,15 +472,15 @@ RT_RET RTNDKNodePlayer::postSeekIfNecessary() {
              mPlayerCtx->mWantSeekTimeUs, mPlayerCtx->mCurTimeUs);
     if (seekDelta > 500*1000) {
         // async seek message
-        // RTMessage* msg = new RTMessage(RT_MEDIA_SEEK_ASYNC, 0, mPlayerCtx->mWantSeekTimeUs, this);
-        // mPlayerCtx->mLooper->flush_message(RT_MEDIA_SEEK_ASYNC);
-        // mPlayerCtx->mLooper->post(msg, 0);
+        RTMessage* msg = new RTMessage(RT_MEDIA_SEEK_ASYNC, 0, mPlayerCtx->mWantSeekTimeUs, this);
+        mPlayerCtx->mLooper->flush_message(RT_MEDIA_SEEK_ASYNC);
+        mPlayerCtx->mLooper->post(msg, 0);
         mPlayerCtx->mSeekFlag = RT_SEEK_DOING;
     } else {
         mPlayerCtx->mSaveSeekTimeUs = -1;
     }
 
-    // mPlayerCtx->mWantSeekTimeUs = -1;
+    mPlayerCtx->mWantSeekTimeUs = -1;
     mPlayerCtx->mSaveSeekTimeUs = -1;
 
     return err;
@@ -501,6 +551,7 @@ RT_RET RTNDKNodePlayer::onSeekTo(INT64 usec) {
     setCurState(RT_STATE_PAUSED);
     mNodeBus->excuteCommand(RT_NODE_CMD_PAUSE);
     mNodeBus->excuteCommand(RT_NODE_CMD_FLUSH);
+
     mPlayerCtx->mCmdOptions->clear();
     mPlayerCtx->mCmdOptions->setInt64(kKeySeekTimeUs, usec);
     mNodeBus->excuteCommand(RT_NODE_CMD_SEEK, mPlayerCtx->mCmdOptions);
@@ -557,62 +608,113 @@ RT_RET RTNDKNodePlayer::checkRuntime(const char* caller) {
     return RT_OK;
 }
 
-/* looper functions or callback of thread */
-void   RTNDKNodePlayer::onMessageReceived(struct RTMessage* msg) {
-    const char* msgName = mEventNames[msg->getWhat()].name;
-    RT_LOGE("done, received messsage(ptr=%p, what=%d, name=%s)", \
-             msg, msg->getWhat(), msgName);
+RT_RET RTNDKNodePlayer::notifyListener(INT32 msg, INT32 ext1, INT32 ext2, void* ptr) {
+    if (RT_NULL != mPlayerCtx->mListener) {
+        mPlayerCtx->mListener->notify(msg, ext1, ext1, ptr);
+    }
+}
+
+RT_RET RTNDKNodePlayer::onEventReceived(struct RTMessage* msg) {
+    const char* msgName = mMediaEvents[msg->getWhat()].name;
+    RT_LOGE("@received event messsage(what=%d, name=%s), notify listener", \
+             msg->getWhat(), msgName);
+    INT32 arg1 = 0;
+    INT32 arg2 = 0;
     switch (msg->getWhat()) {
-      case RT_MEDIA_PREPARED:
-        setCurState(RT_STATE_PREPARED);
-        this->onPreparedDone();
-        postSeekIfNecessary();
-        break;
       case RT_MEDIA_PLAYBACK_COMPLETE:
         if (!mPlayerCtx->mLooping) {
-            onPlaybackDone();
             setCurState(RT_STATE_COMPLETE);
+            this->notifyListener(RT_MEDIA_PLAYBACK_COMPLETE, 0, 0, RT_NULL);
+            if (mPlayerCtx->mRT_Callback != RT_NULL) {
+                mPlayerCtx->mRT_Callback(mPlayerCtx->mRT_Callback_Type, mPlayerCtx->mRT_Callback_Data);
+            }
         } else {
             seekTo(0ll);
         }
-        break;
-      case RT_MEDIA_STARTED:
-        setCurState(RT_STATE_STARTED);
-        break;
-      case RT_MEDIA_PAUSED:
-        setCurState(RT_STATE_PAUSED);
-        break;
-      case RT_MEDIA_ERROR:
-        setCurState(RT_STATE_ERROR);
-        break;
-      case RT_MEDIA_STOPPED:
-        setCurState(RT_STATE_STOPPED);
-        break;
-      case RT_MEDIA_BUFFERING_UPDATE:
         break;
       case RT_MEDIA_SEEK_COMPLETE:
         mPlayerCtx->mSeekFlag = RT_SEEK_NO;
         RT_LOGD("seek complete mPlayerCtx: %p mSeekFlag: %d", mPlayerCtx, mPlayerCtx->mSeekFlag);
         mPlayerCtx->mCurTimeUs = mPlayerCtx->mWantSeekTimeUs;
         setCurState(RT_STATE_STARTED);
+        this->notifyListener(RT_MEDIA_SEEK_COMPLETE, 0, 0, RT_NULL);
         postSeekIfNecessary();
         break;
-      case RT_MEDIA_SET_VIDEO_SIZE:
-        break;
-      case RT_MEDIA_SKIPPED:
-        break;
-      case RT_MEDIA_TIMED_TEXT:
-        break;
-      case RT_MEDIA_INFO:
+      case RT_MEDIA_SEEK_ASYNC:
+        onSeekTo(msg->mData.mArgU64);
         break;
       case RT_MEDIA_SUBTITLE_DATA:
+      case RT_MEDIA_TIMED_TEXT:
+        RT_LOGE("@todo, timed-text...");
         break;
-      case RT_MEDIA_SEEK_ASYNC:
-        // onSeekTo(msg->mData.mArgU64);
+      case RT_MEDIA_STARTED:
+      case RT_MEDIA_PREPARED:
+      case RT_MEDIA_PAUSED:
+      case RT_MEDIA_ERROR:
+      case RT_MEDIA_STOPPED:
+      case RT_MEDIA_BUFFERING_UPDATE:
+      case RT_MEDIA_SET_VIDEO_SIZE:
+      case RT_MEDIA_SKIPPED:
+      case RT_MEDIA_INFO:
+        this->notifyListener(RT_MEDIA_SEEK_COMPLETE, arg1, arg2, RT_NULL);
         break;
       default:
         break;
     }
+    RT_LOGE("@done to notify messsage(what=%d, name=%s)\r\n", msg->getWhat(), msgName);
+    return RT_OK;
+}
+
+RT_RET RTNDKNodePlayer::onCmdReceived(struct RTMessage* msg) {
+    RT_RET err;
+    UINT32 what = msg->getWhat() - RT_MEDIA_CMD_NOP;
+    const char* msgName = "unknown";
+    if ((what > 0) && (what < RT_MEDIA_CMD_MAX)) {
+        msgName = mMediaCmds[what].name;
+    }
+    RT_LOGE("@received cmd messsage(what=%d, name=%s)", msg->getWhat(), msgName);
+    switch (msg->getWhat()) {
+      case RT_MEDIA_CMD_SET_DATASOURCE:
+        err = this->setDataSource(reinterpret_cast<RTMediaUri*>(msg->mData.mArgPtr));
+        break;
+      case RT_MEDIA_CMD_PREPARE:
+        err = this->prepare();
+        break;
+      case RT_MEDIA_CMD_SEEKTO:
+        err = this->seekTo(msg->mData.mArgU64);
+        break;
+      case RT_MEDIA_CMD_START:
+        err = this->start();
+        break;
+      case RT_MEDIA_CMD_STOP:
+        err = this->stop();
+        break;
+      case RT_MEDIA_CMD_PAUSE:
+        err = this->pause();
+        break;
+      case RT_MEDIA_CMD_RESET:
+        err = this->reset();
+        break;
+      default:
+        break;
+    }
+    RT_LOGE("@done to handle cmd messsage(what=%d, name=%s)\r\n", msg->getWhat(), msgName);
+    return err;
+}
+
+/* looper functions or callback of thread */
+RT_RET RTNDKNodePlayer::onMessageReceived(struct RTMessage* msg) {
+    RT_RET err = checkRuntime("onMessageReceived");
+    if (RT_OK != err) {
+        return err;
+    }
+
+    if (msg->getWhat() > RT_MEDIA_CMD_NOP) {
+        err = onCmdReceived(msg);
+    } else {
+        err = onEventReceived(msg);
+    }
+    return err;
 }
 
 RT_RET RTNDKNodePlayer::startDataLooper() {
@@ -698,15 +800,6 @@ RT_RET RTNDKNodePlayer::startAudioPlayerProc() {
         if (RT_STATE_STARTED != curState) {
             RtTime::sleepMs(2);
             continue;
-        }
-
-        /**
-         * 1. do seek operation in runTask
-         */
-        if (mPlayerCtx->mWantSeekTimeUs > 0) {
-            RT_LOGE("seekdebug in runTask wantSeek = %lldms", mPlayerCtx->mWantSeekTimeUs/1000);
-            this->onSeekTo(mPlayerCtx->mWantSeekTimeUs);
-            mPlayerCtx->mWantSeekTimeUs = -1;
         }
 
         /**

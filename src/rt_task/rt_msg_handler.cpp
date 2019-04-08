@@ -20,6 +20,5 @@
 #include "rt_msg_handler.h" // NOLINT
 
 RT_RET RTMsgHandler::deliverMessage(struct RTMessage* msg) {
-    this->onMessageReceived(msg);
-    return RT_OK;
+    return this->onMessageReceived(msg);
 }

@@ -143,14 +143,16 @@ INT32 fa_format_close(FAFormatContext* fc) {
     return err;
 }
 
-INT32 fa_format_seek_to(FAFormatContext* fc, INT32 track_id, UINT64 ts, UINT32 flags) {
+INT32 fa_format_seek_to(FAFormatContext* fc, INT32 track_id, UINT64 timestamp, UINT32 flags) {
     INT32 err = check_av_format_ctx(fc);
     if (-1 == err) {
         return err;
     }
 
-
-    err = avformat_seek_file(fc->mAvfc, track_id, RT_INT64_MIN, ts, RT_INT64_MAX, flags);
+    /* add the stream start time */
+    if (fc->mAvfc->start_time != AV_NOPTS_VALUE)
+        timestamp += fc->mAvfc->start_time;
+    err = avformat_seek_file(fc->mAvfc, track_id, RT_INT64_MIN, timestamp, RT_INT64_MAX, flags);
     fa_utils_check_error(err, "avformat_seek_file");
     return err;
 }

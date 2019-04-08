@@ -31,39 +31,41 @@
 class RTNodeBus;
 struct NodePlayerContext;
 
+
+class RTPlayerListener {
+ public:
+    virtual void notify(INT32 msg, INT32 ext1, INT32 ext2, void* ptr) = 0;
+};
+
 class RTNDKNodePlayer : public RTMsgHandler {
  public:
     RTNDKNodePlayer();
     ~RTNDKNodePlayer();
 
-    /* commit control operations */
-    RT_RET    init();
-    RT_RET    release();
-    RT_RET    reset();
-    RT_RET    setDataSource(RTMediaUri *mediaUri);
-    RT_RET    prepare();
-    RT_RET    start();
-    RT_RET    pause();
-    RT_RET    stop();
-    RT_RET    wait(int64_t timeUs = 0);  // waiting until playback done.
-    RT_RET    seekTo(INT64 usec);
+    /* basic property operations */
     RT_RET    setLooping(RT_BOOL loop);
+    RT_RET    setVideoSurfaceTexture(void* bufferProducer) { }
+    RT_RET    setVideoSurface(void* surface) { }
+    RT_RET    setListener(RTPlayerListener* listener);
+
+    /* utils for multi-thread */
+    RT_RET    post(const char* caller, RTMessage* msg);
+    RT_RET    send(const char* caller, RTMessage* msg);
+    RT_RET    wait(int64_t timeUs = 0);  // waiting until playback done.
 
     RT_RET    summary(INT32 fd);
     RT_RET    getCurrentPosition(int64_t *usec);
     RT_RET    getDuration(int64_t *usec);
-    RT_RET    setCurState(UINT32 newState);
     UINT32    getCurState();
 
     /* looper functions or callback of thread */
-    void      onMessageReceived(struct RTMessage* msg);
+    RT_RET    onMessageReceived(struct RTMessage* msg);
     RT_RET    startDataLooper();
     RT_RET    startAudioPlayerProc();
     //  flag: PCM ES TS  type: video audio
     RT_RET    writeData(const char * data, const UINT32 length, int flag, int type);
-    /*
-     * callback
-     */
+
+    /* callback */
     RT_RET setCallBack(RT_CALLBACK_T callback, int p_event, void *p_data);
 
  private:
@@ -72,6 +74,22 @@ class RTNDKNodePlayer : public RTMsgHandler {
     RT_RET    onPlaybackDone();
     RT_RET    onPreparedDone();
     RT_RET    checkRuntime(const char* caller);
+    RT_RET    setCurState(UINT32 newState);
+    RT_RET    onEventReceived(struct RTMessage* msg);
+    RT_RET    onCmdReceived(struct RTMessage* msg);
+    RT_RET    notifyListener(INT32 msg, INT32 ext1, INT32 ext2, void* ptr);
+
+ private:
+    /* basic control operations */
+    RT_RET    init();
+    RT_RET    release();
+    RT_RET    reset();
+    RT_RET    setDataSource(RTMediaUri *mediaUri);
+    RT_RET    prepare();
+    RT_RET    start();
+    RT_RET    pause();
+    RT_RET    stop();
+    RT_RET    seekTo(INT64 usec);
 
  private:
     struct NodePlayerContext* mPlayerCtx;

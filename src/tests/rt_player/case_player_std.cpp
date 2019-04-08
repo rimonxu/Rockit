@@ -48,6 +48,7 @@ RT_RET unit_test_player_with_thread(const char* uri, bool rand) {
     ndkPlayer->setDataSource(uri, RT_NULL);
     ndkPlayer->prepare();
     ndkPlayer->start();
+    ndkPlayer->setLooping(RT_TRUE);
 
     // simulation of control distribution
     RtTime::sleepMs(1000);

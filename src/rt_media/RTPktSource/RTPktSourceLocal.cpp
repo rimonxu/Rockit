@@ -97,7 +97,7 @@ RT_RET RTPktSourceLocal::init(RtMetaData *config) {
 RT_RET RTPktSourceLocal::release() {
     RT_RET ret = RT_OK;
     flush();
-    {
+    do {
         RtMutex::RtAutolock autoLock(mQueueLock);
         if (mVideoPktQ) {
             deque_destory(&mVideoPktQ);
@@ -107,7 +107,7 @@ RT_RET RTPktSourceLocal::release() {
         }
         rt_safe_delete(mVideoCache);
         rt_safe_delete(mAudioCache);
-    }
+    } while (0);
     rt_safe_delete(mQueueLock);
 
     rt_safe_delete(mCondition);

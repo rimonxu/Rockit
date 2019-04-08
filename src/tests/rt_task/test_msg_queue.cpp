@@ -58,8 +58,8 @@ struct CMDPlayer: public RTMsgHandler {
  public:
     CMDPlayer();
     ~CMDPlayer();
-    void postRandomMessage(UINT32 msg_cnt);
-    void onMessageReceived(struct RTMessage* msg);
+    void   postRandomMessage(UINT32 msg_cnt);
+    RT_RET onMessageReceived(struct RTMessage* msg);
     struct RTMsgLooper* mLooper;
 };
 
@@ -86,12 +86,13 @@ void CMDPlayer::postRandomMessage(UINT32 msg_cnt) {
     }
 }
 
-void CMDPlayer::onMessageReceived(struct RTMessage* msg) {
+RT_RET CMDPlayer::onMessageReceived(struct RTMessage* msg) {
     RT_LOGE("call, receive message(msg=%p; what=%d)", msg, msg->getWhat());
     UINT64 callTime = RtTime::getNowTimeMs();
     RtTime::sleepMs(RtTime::randInt()%1000);
     UINT64 doneTime = RtTime::getNowTimeMs() - callTime;
     RT_LOGE("done, receive message(msg=%p; what=%d) time=%lld", msg, msg->getWhat(), doneTime);
+    return RT_OK;
 }
 
 RT_RET unit_test_msgqueue(INT32 index, INT32 total) {

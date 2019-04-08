@@ -414,7 +414,7 @@ RT_RET FFNodeDemuxer::onPause() {
         ctx->mNodeState = NODE_STATE_PAUSED;
         break;
       default:
-        RT_LOGE("call onPause(), invalid state:%s", ctx->mNodeState);
+        RT_LOGE("call onPause(), invalid state:%d", ctx->mNodeState);
     }
 
     return RT_OK;
@@ -458,8 +458,9 @@ RT_RET FFNodeDemuxer::runTask() {
     RT_ASSERT(RT_NULL != ctx);
 
     void                *raw_pkt = RT_NULL;
-    INT32                err = 0;
-    RTPacket            *rt_pkt = RT_NULL;
+    INT32                err     = 0;
+    RTPacket            *rt_pkt  = RT_NULL;
+    INT32                err_cnt = 0;
 
     RT_LOGD_IF(DEBUG_FLAG, "task begin");
     while (THREAD_LOOP == ctx->mThread->getState()) {
@@ -475,10 +476,11 @@ RT_RET FFNodeDemuxer::runTask() {
         }
 
         if (!ctx->mEosFlag) {
-            rt_pkt = ctx->mSource->dequeueUnusedPacket(RT_TRUE);
+            // don't block. demuxer may fail to queue pkt, when pause and stop player.
+            rt_pkt = ctx->mSource->dequeueUnusedPacket(RT_FALSE);
             if (rt_pkt != RT_NULL) {
                 err = fa_format_packet_read(ctx->mFormatCtx, &raw_pkt);
-                if (RT_ERR_END_OF_STREAM == err) {
+                if ((RT_ERR_END_OF_STREAM == err) || (err_cnt > 5)) {
                     RT_LOGE("read end of stream");
                     ctx->mEosFlag = RT_TRUE;
                     if (ctx->mIndexVideo >= 0) {
@@ -490,11 +492,15 @@ RT_RET FFNodeDemuxer::runTask() {
                     ctx->mSource->queueUnusedPacket(rt_pkt);
                     rt_pkt = RT_NULL;
                 } else if (err < 0) {
-                    RT_LOGE("read failed err: %d", err);
+                    char errbuf[64] = {0};
+                    fa_utils_error_string(err, errbuf, 64);
+                    RT_LOGE("fail to av_read_packet, error(%d):%s", err, errbuf);
                     fa_format_packet_free(raw_pkt);
                     ctx->mSource->queueUnusedPacket(rt_pkt);
+                    err_cnt++;
                     continue;
                 } else {
+                    err_cnt = 0;
                     fa_format_packet_parse(ctx->mFormatCtx, raw_pkt, rt_pkt);
                     ctx->mSource->queuePacket(rt_pkt);
                     rt_pkt = RT_NULL;

@@ -36,6 +36,7 @@ typedef int32_t rt_status;
 #endif
 
 class  RTParcel;
+class  RTPlayerListener;
 struct RtNDKPlayerContext;
 class RTNDKMediaPlayer {
  public:
@@ -51,9 +52,10 @@ class RTNDKMediaPlayer {
     rt_status setLooping(int loop);
     rt_status setVideoSurfaceTexture(void* bufferProducer);
     rt_status setVideoSurface(void* surface);
+    rt_status setListener(RTPlayerListener* listener);
 
     /*
-     * basic operations
+     * basic operations (dipatch controls by messages)
      */
     rt_status initCheck();
     rt_status prepare();
