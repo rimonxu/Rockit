@@ -663,7 +663,11 @@ INT32 fa_init_audio_params_from_metadata(FACodecContext *ctx, RtMetaData *meta) 
     // codec context parameters configure
     codec_ctx->codec_type = AVMEDIA_TYPE_AUDIO;
     codec_ctx->extradata_size  = extra_size;
-    codec_ctx->extradata   = reinterpret_cast<UINT8 *>(extra_data);
+
+    if (extra_size > 0 && extra_data) {
+        codec_ctx->extradata = rt_malloc_size(UINT8, extra_size);
+        rt_memcpy(codec_ctx->extradata, extra_data, extra_size);
+    }
     codec_ctx->channels    = channels;
     codec_ctx->sample_rate = sample_rate;
     codec_ctx->bit_rate    = bit_rate;
