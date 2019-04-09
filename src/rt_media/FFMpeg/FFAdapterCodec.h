@@ -39,6 +39,7 @@ struct FACodecContext {
     AudioParams      mAudioTgt;
     SwrContext      *mSwrCtx;
     AVFrame         *mFrame;
+    RT_BOOL          mEosFlag;
 };
 
 class RtMetaData;

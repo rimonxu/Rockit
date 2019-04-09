@@ -155,6 +155,7 @@ FACodecContext* fa_audio_decode_create(RtMetaData *meta) {
 
     ctx->mAudioSrc.fmt = AV_SAMPLE_FMT_S16;
     ctx->mFrame = RT_NULL;
+    ctx->mEosFlag = RT_FALSE;
 
     return ctx;
 
@@ -533,9 +534,16 @@ RT_RET fa_audio_decode_get_frame(FACodecContext* fc, RTMediaBuffer *buffer) {
         buffer->setRange(0, 0);
     }
     if (ret == AVERROR_EOF) {
-        RT_LOGE("reach EOS!");
-        avcodec_flush_buffers(fc->mAvCodecCtx);
-        meta->setInt32(kKeyFrameEOS, 1);
+        if (!fc->mEosFlag) {
+            RT_LOGD("reach EOS!");
+            avcodec_flush_buffers(fc->mAvCodecCtx);
+            meta->setInt32(kKeyFrameEOS, 1);
+            fc->mEosFlag = RT_TRUE;
+        } else {
+            RT_LOGD("reach EOS Again!!! do nothing");
+            av_frame_unref(frame);
+            return RT_OK;
+        }
     }
     av_frame_unref(frame);
     // av_frame_free(&frame);
