@@ -293,7 +293,9 @@ void fa_video_decode_destroy(FACodecContext **fc) {
     if (*fc && (*fc)->mAvCodecCtx) {
         avcodec_free_context(&((*fc)->mAvCodecCtx));
     }
-
+    if (*fc && (*fc)->mSwrCtx) {
+        swr_free(&((*fc)->mSwrCtx));
+    }
     if (*fc) {
         rt_free(*fc);
         *fc = NULL;
@@ -484,7 +486,10 @@ RT_RET fa_audio_decode_get_frame(FACodecContext* fc, RTMediaBuffer *buffer) {
                 (frame->channel_layout && frame->channels == av_get_channel_layout_nb_channels(frame->channel_layout)) ?
                 frame->channel_layout : av_get_default_channel_layout(frame->channels);
 
-            if (frame->format != AV_SAMPLE_FMT_S16) {
+            if (frame->format != fc->mAudioSrc.fmt ||
+                dec_channel_layout != fc->mAudioSrc.channel_layout ||
+                frame->sample_rate != fc->mAudioSrc.sample_rate ||
+                !fc->mSwrCtx) {
                 if (fc->mSwrCtx) {
                     swr_free(&fc->mSwrCtx);
                 }
@@ -503,6 +508,8 @@ RT_RET fa_audio_decode_get_frame(FACodecContext* fc, RTMediaBuffer *buffer) {
                     return RT_ERR_UNKNOWN;
                 }
                 fc->mAudioSrc.fmt = (AVSampleFormat)frame->format;
+                fc->mAudioSrc.channel_layout = dec_channel_layout;
+                fc->mAudioSrc.sample_rate = frame->sample_rate;
             }
 
             if (fc->mSwrCtx) {

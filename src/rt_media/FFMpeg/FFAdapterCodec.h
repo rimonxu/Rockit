@@ -28,6 +28,7 @@ typedef struct AudioParams {
     int channels;
     int64_t channel_layout;
     enum AVSampleFormat fmt;
+    int sample_rate;
     int frame_size;
     int bytes_per_sec;
 } AudioParams;
