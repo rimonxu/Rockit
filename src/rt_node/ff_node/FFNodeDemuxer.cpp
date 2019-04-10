@@ -155,17 +155,12 @@ RT_RET FFNodeDemuxer::release() {
     // @review: flush video&audio&subtitle packets and close av_format
     this->onReset();
 
-    if (ctx->mSource) {
-        ctx->mSource->release();
-    }
-
     // @review: release memory of node context
     rt_safe_delete(ctx->mMetaInput);
     rt_safe_delete(ctx->mMetaOutput);
-    rt_safe_delete(ctx->mSource);
+    rt_safe_delete(ctx->mSource);     // implicit call mSource->release()
     rt_safe_free(ctx);
 
-    ctx->mNodeState = NODE_STATE_ERROR;
     return RT_OK;
 }
 
