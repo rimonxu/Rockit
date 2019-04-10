@@ -72,7 +72,8 @@ class RtThread {
     static INT32 getThreadID();
 
  public:
-    void*  mData;
+    void                *mData;
+    RtMutex             *mLock;
 };
 
 #endif  // SRC_RT_BASE_INCLUDE_RT_THREAD_H_

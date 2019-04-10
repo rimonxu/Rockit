@@ -54,7 +54,9 @@ static void* thread_looping(void* arg) {
     RtThreadData* data   = static_cast<RtThreadData*>(thread->mData);
     // Call entry point only if thread was not canceled before starting.
     UINT32 tid = (INT32)(data->mTid);
-    data->mLoopState = THREAD_LOOP;
+
+    if (data->mLoopState == THREAD_IDLE)
+        data->mLoopState = THREAD_LOOP;
     RT_LOGD_IF(DEBUG_FLAG, "call, pthread_looper(name:%-010s tid:%lu)", data->mName, tid%10000);
 
     if (RT_NULL != data->mTaskSlot) {
@@ -87,11 +89,15 @@ RtThreadData* createThreadData(RtThread::RtTaskSlot task_slot, RtRunnable* runna
 }
 
 RtThread::RtThread(RtTaskSlot task_slot, void* ptr_data) {
+    mLock = new RtMutex();
+    RT_ASSERT(RT_NULL != mLock);
     mData = createThreadData(task_slot, RT_NULL, ptr_data);
     this->setName("thread-?");
 }
 
 RtThread::RtThread(RtRunnable* runnable, void* ptr_data) {
+    mLock = new RtMutex();
+    RT_ASSERT(RT_NULL != mLock);
     mData = createThreadData(RT_NULL, runnable, ptr_data);
     this->setName("thread-?");
 }
@@ -101,6 +107,7 @@ RtThread::~RtThread() {
         this->join();
         rt_safe_free(mData);
     }
+    rt_safe_delete(mLock);
 }
 
 RT_BOOL RtThread::start() {
@@ -130,14 +137,16 @@ INT32 RtThread::getState() {
 }
 
 void RtThread::join() {
+    RtMutex::RtAutolock autoLock(mLock);
     if (RT_NULL != mData) {
         RtThreadData* data = static_cast<RtThreadData*>(mData);
         UINT32 tid = (UINT32)(data->mTid);
         if (tid > 0) {
             RT_LOGD_IF(DEBUG_FLAG, "call, pthread_join(name:%-010s tid:%lu)", data->mName, tid%10000);
+            requestInterruption();
             pthread_join(data->mTid, RT_NULL);
             RT_LOGD_IF(DEBUG_FLAG, "done, pthread_join(name:%-010s tid:%lu)", data->mName, tid%10000);
-            data->mLoopState =  THREAD_EXIT;
+            data->mLoopState =  THREAD_IDLE;
             data->mTid   = 0;
         }
     }
