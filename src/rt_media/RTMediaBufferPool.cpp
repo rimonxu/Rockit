@@ -54,7 +54,8 @@ RTMediaBufferPool::RTMediaBufferPool(UINT32 max_buffer_count)
 }
 
 RTMediaBufferPool::RTMediaBufferPool(UINT32 max_buffer_count, UINT32 buffer_size)
-    : mBufferList(new RTBufferList()) {
+    : mBufferList(new RTBufferList()),
+      mRunning(RT_FALSE) {
     RT_ASSERT(RT_NULL != mBufferList->mBuffers);
 
     mBufferList->mLock = new RtMutex();
@@ -107,13 +108,21 @@ RT_BOOL RTMediaBufferPool::hasBuffer() {
     return RT_FALSE;
 }
 
+RT_RET RTMediaBufferPool::start() {
+    mRunning = RT_TRUE;
+}
+RT_RET RTMediaBufferPool::stop() {
+    mRunning = RT_FALSE;
+    signalBufferReturned(RT_NULL);
+}
+
 RT_RET RTMediaBufferPool::acquireBuffer(
         RTMediaBuffer **out,
         RT_BOOL block,
         UINT32 request_size) {
     RtMutex::RtAutolock autoLock(mBufferList->mLock);
 
-    while (1) {
+    while (mRunning) {
         *out = RT_NULL;
         RTMediaBuffer *buffer = RT_NULL;
         RTMediaBuffer *it = RT_NULL;

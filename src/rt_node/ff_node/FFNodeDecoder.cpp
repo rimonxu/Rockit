@@ -430,6 +430,9 @@ RT_RET FFNodeDecoder::runTask() {
 
 RT_RET FFNodeDecoder::onStart() {
     RT_RET err = RT_OK;
+
+    mFramePool->start();
+    mPacketPool->start();
     mStarted = RT_TRUE;
     return err;
 }
@@ -443,6 +446,8 @@ RT_RET FFNodeDecoder::onPause() {
 RT_RET FFNodeDecoder::onStop() {
     RT_RET err = RT_OK;
     mStarted = RT_FALSE;
+    mFramePool->stop();
+    mPacketPool->stop();
     mProcThread->requestInterruption();
     mProcThread->join();
     onFlush();

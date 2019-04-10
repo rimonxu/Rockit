@@ -49,6 +49,8 @@ class RTMediaBufferPool : public RTMediaBufferObserver {
     RT_RET registerBuffer(RTMediaBuffer *buffer);
 
     RT_BOOL hasBuffer();
+    RT_RET start();
+    RT_RET stop();
 
     RT_RET acquireBuffer(
                RTMediaBuffer **out,
@@ -61,7 +63,8 @@ class RTMediaBufferPool : public RTMediaBufferObserver {
 
  private:
     struct RTBufferList;
-    RTBufferList *mBufferList;
+    RTBufferList    *mBufferList;
+    RT_BOOL          mRunning;
 
     RTMediaBufferPool(const RTMediaBufferPool &);
     RTMediaBufferPool &operator=(const RTMediaBufferPool &);
