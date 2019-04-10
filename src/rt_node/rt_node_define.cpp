@@ -52,6 +52,8 @@ static const rt_enum_name g_node_cmd_names[] = {
     { RT_NODE_CMD_SEEK,        "SEEK" },
     { RT_NODE_CMD_RESET,       "RESET" },
     { RT_NODE_CMD_REINIT,      "REINIT" },
+    { RT_NODE_CMD_FLUSH,       "FLUSH"},
+    { RT_NODE_CMD_PAUSE,       "PAUSE"},
     { RT_NODE_CMD_NAVIGATION,  "NAVIGATION" },
     { RT_NODE_CMD_DRAIN,       "DRAIN" },
 
