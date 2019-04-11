@@ -229,6 +229,7 @@ void RTMediaBuffer::release(bool debug) {
             if (mAllocator != RT_NULL) {
                 RTMediaBuffer *this_tmp = this;
                 mAllocator->freeBuffer(&this_tmp);
+                return;
             }
             delete this;
             return;

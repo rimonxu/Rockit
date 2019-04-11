@@ -225,6 +225,7 @@ RT_RET RTMsgLooper::flush_message(UINT32 mWhat) {
 }
 
 RT_RET RTMsgLooper::requestExit() {
+    RtMutex::RtAutolock autoLock(mDataLock);
     mThread->requestInterruption();
     mExecCond->broadcast();
     mSyncCond->broadcast();

@@ -396,7 +396,7 @@ RT_RET FFNodeDecoder::runTask() {
             err = fa_decode_send_packet(mFFCodec, input);
             if (err) {
                 if (err == RT_ERR_TIMEOUT) {
-                    input = NULL;
+                    RtTime::sleepMs(5);
                 }
                 continue;
             } else {

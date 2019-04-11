@@ -378,6 +378,8 @@ RT_RET fa_decode_send_packet(FACodecContext* fc, RTMediaBuffer *buffer) {
 
     if (avcodec_send_packet(fc->mAvCodecCtx, avPkt) == AVERROR(EAGAIN)) {
         RT_LOGE("send_packet returned EAGAIN, which is an API violation.\n");
+        av_packet_unref(avPkt);
+        av_packet_free(&avPkt);
         return RT_ERR_TIMEOUT;
     }
 
