@@ -179,23 +179,34 @@ RT_RET RTNDKNodePlayer::setDataSource(RTMediaUri *mediaUri) {
         return err;
     }
 
-    if (mediaUri->mUri[0] == RT_NULL) {
-        this->setCurState(RT_STATE_INITIALIZED);
-    } else {
-        mPlayerCtx->mProtocolType = RTMediaUtil::getMediaProtocol(mediaUri->mUri);
-        err = mNodeBus->autoBuild(mediaUri);
-        if (RT_OK != err) {
-            if (RT_NULL == mNodeBus->getRootNode(BUS_LINE_ROOT)) {
-                RT_LOGE("fail to init demuxer");
-                mPlayerCtx->mLooper->flush();
-                RTMessage* msg = new RTMessage(RT_MEDIA_ERROR, RT_NULL, this);
-                mPlayerCtx->mLooper->send(msg, 0);
-                mPlayerCtx->mLooper->requestExit();
-                return RT_ERR_UNKNOWN;
-            }
+    // nodebus be operated by multithread
+    RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+
+    UINT32 curState = getCurState();
+    switch (curState) {
+      case RT_STATE_IDLE:
+        if (mediaUri->mUri[0] == RT_NULL) {
+            this->setCurState(RT_STATE_IDLE);
         } else {
-            this->setCurState(RT_STATE_INITIALIZED);
+            mPlayerCtx->mProtocolType = RTMediaUtil::getMediaProtocol(mediaUri->mUri);
+            err = mNodeBus->autoBuild(mediaUri);
+            if (RT_OK != err) {
+                if (RT_NULL == mNodeBus->getRootNode(BUS_LINE_ROOT)) {
+                    RT_LOGE("fail to init demuxer");
+                    mPlayerCtx->mLooper->flush();
+                    RTMessage* msg = new RTMessage(RT_MEDIA_ERROR, RT_NULL, this);
+                    mPlayerCtx->mLooper->send(msg, 0);
+                    mPlayerCtx->mLooper->requestExit();
+                    return RT_ERR_UNKNOWN;
+                }
+            } else {
+                this->setCurState(RT_STATE_INITIALIZED);
+            }
         }
+        break;
+      default:
+        RTMediaUtil::dumpStateError(curState, __FUNCTION__);
+        break;
     }
     return err;
 }
