@@ -98,6 +98,7 @@ enum {
     kKeyMemFlags            = MKTAG('m', 'e', 'f', 'l'),  // INT32
     kKeyMemHeapMask         = MKTAG('m', 'h', 'm', 's'),  // INT32
     kKeyMemUsage            = MKTAG('m', 'e', 'u', 's'),  // INT32
+    kKeyMemAllocator        = MKTAG('m', 'a', 'l', 'c'),  // RTAllocator *
 
     /* command options */
     kKeySeekTimeUs          = MKTAG('s', 't', 'u', 's'),  // INT64

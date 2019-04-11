@@ -140,7 +140,10 @@ RT_RET FFNodeDecoder::init(RtMetaData *metadata) {
     // TODO(frame count): max frame count should set by config.
     mFramePool  = new RTMediaBufferPool(MAX_OUTPUT_BUFFER_COUNT);
     mPacketPool = new RTMediaBufferPool(MAX_INPUT_BUFFER_COUNT);
-    RTAllocatorStore::priorAvailLinearAllocator(metadata, &mLinearAllocator);
+    if (!metadata->findPointer(kKeyMemAllocator, (void **)&mLinearAllocator)) {
+        RT_LOGE("Not find memory allocator from config!");
+        return RT_ERR_UNKNOWN;
+    }
     RT_ASSERT(RT_NULL != mLinearAllocator);
 
     allocateBuffersOnPort(RT_PORT_INPUT);
@@ -198,7 +201,6 @@ RT_RET FFNodeDecoder::release() {
     rt_safe_delete(mPacketPool);
     rt_safe_delete(mFramePool);
     rt_safe_delete(mMetaInput);
-    rt_safe_delete(mLinearAllocator);
 
     // thread release
     rt_safe_delete(mProcThread);

@@ -42,6 +42,8 @@
 #include "RTNodeSinkGLES.h"    // NOLINT
 #include "RTSinkAudioWASAPI.h" // NOLINT
 #endif
+#include "RTAllocatorStore.h"       // NOLINT
+#include "RTAllocatorBase.h"        // NOLINT
 
 #ifdef LOG_TAG
 #undef LOG_TAG
@@ -66,6 +68,7 @@ struct NodeBusContext {
     RTMediaUri     *mSetting;
     RTNodeDemuxer  *mDemuxer;
     RTNode*         mRootNodes[BUS_LINE_MAX];
+    RTAllocator    *mLinearAllocator;
 } NodeBusContext;
 
 RTNode* bus_find_and_add_demuxer(RTNodeBus *pNodeBus, RTMediaUri *setting);
@@ -89,6 +92,10 @@ RTNodeBus::RTNodeBus() {
              mBusCtx->mNodeBus, mBusCtx->mNodeAll);
     mBusCtx->mSetting = RT_NULL;
     mBusCtx->mDemuxer = RT_NULL;
+    mBusCtx->mLinearAllocator = RT_NULL;
+
+    RTAllocatorStore::priorAvailLinearAllocator(RT_NULL, &(mBusCtx->mLinearAllocator));
+    RT_ASSERT(RT_NULL != mLinearAllocator);
 
     clearNodeBus();
     registerCoreStubs();
@@ -106,6 +113,7 @@ RTNodeBus::~RTNodeBus() {
     // NodeBusSetting is released by its producer
     mBusCtx->mSetting = RT_NULL;
     mBusCtx->mDemuxer = RT_NULL;
+    rt_safe_delete(mBusCtx->mLinearAllocator);
 
     rt_safe_free(mBusCtx);
 
@@ -383,6 +391,11 @@ RT_RET RTNodeBus::excuteCommand(RT_NODE_CMD cmd, RtMetaData *option) {
     return RT_OK;
 }
 
+RT_RET RTNodeBus::setMemAllocator(RtMetaData *option) {
+    option->setPointer(kKeyMemAllocator, (RT_PTR)mBusCtx->mLinearAllocator);
+    return RT_OK;
+}
+
 
 RT_RET RTNodeBus::clearNodeBus() {
     // @review: nodes be released when reset, NEED to clear root nodes.
@@ -468,6 +481,7 @@ RTNode* bus_find_and_add_codec(RTNodeBus *pNodeBus, RTNode *demuxer, \
     if (RT_NULL != node_meta) {
         // @TODO create codec by MIME
         node_stub = pNodeBus->findStub(RT_NODE_TYPE_DECODER, lType);
+        pNodeBus->setMemAllocator(node_meta);
     }
 
     if (RT_NULL != node_stub) {

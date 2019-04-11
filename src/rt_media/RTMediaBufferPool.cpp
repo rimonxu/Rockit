@@ -170,13 +170,14 @@ RT_RET RTMediaBufferPool::releaseAllBuffers() {
     for (UINT32 idx = 0; idx < size; idx++) {
         RTMediaBuffer *buffer = reinterpret_cast<RTMediaBuffer *>
                                     (array_list_get_data(mBufferList->mBuffers, 0));
+        array_list_remove(mBufferList->mBuffers, reinterpret_cast<void *>(buffer));
+        buffer->setObserver(RT_NULL);
         if (buffer->refsCount() != 0) {
             RT_LOGD("has buffer still in used, buffer: %p, index: %d, refsCount: %d",
                      buffer, idx, buffer->refsCount());
+        } else {
+            buffer->release();
         }
-        buffer->setObserver(RT_NULL);
-        buffer->release();
-        array_list_remove(mBufferList->mBuffers, reinterpret_cast<void *>(buffer));
     }
 
     return ret;
