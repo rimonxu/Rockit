@@ -112,7 +112,7 @@ RT_RET RTMsgLooper::post(struct RTMessage* msg, INT64 delayUs /* = 0 */) {
         if (RT_TRUE == msg->mSync) {
             msg->mDoneListener = LooperDoneListener;
         }
-        deque_push_head(mEventQueue, reinterpret_cast<void*>(msg));
+        deque_push_tail(mEventQueue, reinterpret_cast<void*>(msg));
 #endif
 
         mErr = RT_OK;

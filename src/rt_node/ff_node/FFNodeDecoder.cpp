@@ -211,7 +211,9 @@ RT_RET FFNodeDecoder::dequeBuffer(RTMediaBuffer **data, RTPortType port) {
     RT_DequeEntry entry;
     switch (port) {
         case RT_PORT_INPUT:
-            mPacketPool->acquireBuffer(data, RT_TRUE);
+            if (mPacketPool != RT_NULL) {
+                mPacketPool->acquireBuffer(data, RT_TRUE);
+            }
             if (*data) {
                 (*data)->getMetaData()->setInt32(kKeyCodecType, mTrackType);
             } else {
