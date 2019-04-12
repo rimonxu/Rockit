@@ -553,6 +553,8 @@ RT_RET fa_audio_decode_get_frame(FACodecContext* fc, RTMediaBuffer *buffer) {
             av_frame_unref(frame);
             return RT_OK;
         }
+    } else {
+        fc->mEosFlag = RT_FALSE;
     }
     av_frame_unref(frame);
     // av_frame_free(&frame);

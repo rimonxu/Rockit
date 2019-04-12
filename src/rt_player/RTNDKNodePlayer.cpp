@@ -640,6 +640,7 @@ RT_RET RTNDKNodePlayer::onEventReceived(struct RTMessage* msg) {
                 mPlayerCtx->mRT_Callback(mPlayerCtx->mRT_Callback_Type, mPlayerCtx->mRT_Callback_Data);
             }
         } else {
+            RT_LOGE("player in LOOPING mode, replay by seek.");
             seekTo(0ll);
         }
         break;

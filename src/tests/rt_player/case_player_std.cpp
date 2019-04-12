@@ -45,6 +45,7 @@ RT_RET unit_test_player_with_thread(const char* uri, bool rand) {
     RtThread*          cmdThread = RT_NULL;
     RTNDKMediaPlayer*  ndkPlayer = new RTNDKMediaPlayer();
 
+#if 0
     ndkPlayer->setDataSource(uri, RT_NULL);
     ndkPlayer->prepare();
     ndkPlayer->start();
@@ -60,11 +61,24 @@ RT_RET unit_test_player_with_thread(const char* uri, bool rand) {
     }
 
     // wait util of playback complete
-    ndkPlayer->wait(600*1000*1000);    // wait for timeout(ms)
-    #if 0
+    ndkPlayer->wait(RT_INT64_MAX);    // wait for timeout(ms)
+#else
+    const char* uri_a = "http://music.163.com/song/media/outer/url?id=176499.mp3";
+    const char* uri_b = "http://music.163.com/song/media/outer/url?id=2530213.mp3";
+    for (int idx = 0; idx < 10000; idx++) {
+        const char* uri = (idx % 2 == 0)?uri_a:uri_b;
+        ndkPlayer->reset();
+        ndkPlayer->setDataSource(uri, RT_NULL);
+        ndkPlayer->prepare();
+        ndkPlayer->start();
+        RtTime::sleepMs(RtTime::randInt()%5000 + 5*1000);
+    }
+#endif
+
+#if 0
     ndkPlayer->playPcm(media_two);
     ndkPlayer->wait();
-    #endif
+#endif
     cmd_count = MAX_TEST_COUNT;
     ndkPlayer->pause();
     ndkPlayer->stop();
