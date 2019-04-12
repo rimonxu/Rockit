@@ -108,6 +108,7 @@ int Rockit_PlayAudio_PCM(void *player) {
     rt_status ret;
 
     ret = rtplayer->pcm_player->getState();
+    RtMutex::RtAutolock autoLock(rtplayer->mDataLock);
     RT_LOGD("RockitPlayer1 PCM ret = %d", ret);
     if (ret == RT_STATE_COMPLETE) {
         RT_LOGD("RockitPlayer1 PCM PlayerStop1");
@@ -156,16 +157,23 @@ int Rockit_PlayAudio(void *player, const char* url, const int pcm) {
     ret = rtplayer->local_player->getState();
     RT_LOGD("RockitPlayer1 Audio ret = %d", ret);
     {
-        Rockit_PlayerStop(player);
         if (NULL != rtplayer) {
+            RT_LOGD("RockitPlayer1 Audio Stop 1");
+            rtplayer->local_player->stop();
+            RT_LOGD("RockitPlayer1 Audio Stop 2");
+            rtplayer->local_player->reset();
             rtplayer->player_select = LOCAL_PLAY;
             if (!strncasecmp("/oem", url, 4)) {
                 rtplayer->mProtocolType = PRO_LOCAL;
             } else {
                 rtplayer->mProtocolType = PRO_HTTP;
             }
+            RT_LOGD("RockitPlayer1 Audio 1");
             rtplayer->local_player->setDataSource(url, RT_NULL);
+            RT_LOGD("RockitPlayer1 Audio 2");
             rtplayer->local_player->prepare();
+            RT_LOGD("RockitPlayer1 Audio 3");
+            rtplayer->local_player->start();
             RT_LOGD("RockitPlayer1 Audio  Done", url);
             return RT_OK;
         }
@@ -205,11 +213,15 @@ int Rockit_PlayerStop(void *player) {
     RockitContext * rtplayer = reinterpret_cast<RockitContext *>(player);
     RtMutex::RtAutolock autoLock(rtplayer->mDataLock);
     if (NULL != rtplayer) {
-        if (1) {
+        {
             RT_LOGD("RockitPlayer1 PlayerStop 1");
             rtplayer->local_player->stop();
             RT_LOGD("RockitPlayer1 PlayerStop 2");
             rtplayer->local_player->reset();
+            RT_LOGD("RockitPlayer1 PlayerStop 3");
+            rtplayer->pcm_player->stop();
+            RT_LOGD("RockitPlayer1 PlayerStop 4");
+            rtplayer->pcm_player->reset();
         }
         RT_LOGD("RockitPlayer1 PlayerStop done");
         return RT_OK;

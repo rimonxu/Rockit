@@ -737,22 +737,18 @@ RT_RET RTNDKNodePlayer::writeData(const char * data, const UINT32 length, int fl
     RT_ASSERT(RT_NULL != mPlayerCtx);
     RT_LOGD("RTNDKNodePlayer::writeData IN");
     if (RT_WRITEDATA_PCM == flag) {
-        RT_LOGD("RTNDKNodePlayer::writeData 1 length = %d", length);
-        RTMediaBuffer* esPacket;
+        RTMediaBuffer* esPacket = RT_NULL;
         RTNode* decoder   = mNodeBus->getRootNode(BUS_LINE_AUDIO);
         if (decoder != RT_NULL) {
-            RT_LOGD("RTNDKNodePlayer::writeData 2 length = %d", length);
             {
                 RT_RET err = RTNodeAdapter::dequeCodecBuffer(decoder, &esPacket, RT_PORT_INPUT);
-                RT_LOGD("RTNDKNodePlayer::writeData err = %d", err);
                 if (RT_NULL != esPacket) {
                     if (length > 0) {
-                        RT_LOGD("RTNDKNodePlayer::writeData 3");
                         char *tempdata = rt_malloc_size(char, length);
                         rt_memcpy(tempdata, data, length);
                         esPacket->setData(tempdata, length);
                     } else {
-                        RT_LOGD("RTNDKNodePlayer::writeData 4 eos");
+                        RT_LOGD("RTNDKNodePlayer::writeData  eos");
                         esPacket->setData(NULL, 0);
                         esPacket->getMetaData()->setInt32(kKeyFrameEOS, 1);
                     }
@@ -760,7 +756,7 @@ RT_RET RTNDKNodePlayer::writeData(const char * data, const UINT32 length, int fl
                 } else {
                     RT_LOGD("writeData list null");
                 }
-        }
+            }
         } else {
             RT_LOGD("writeData decoder null");
         }
