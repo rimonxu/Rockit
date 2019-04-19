@@ -249,7 +249,6 @@ RTNodeStub* findStub(RT_NODE_TYPE nType, BUS_LINE_TYPE lType) {
             stub = &rt_sink_audio_wasapi;
             #endif
             break;
-            break;
           default:
             break;
         }

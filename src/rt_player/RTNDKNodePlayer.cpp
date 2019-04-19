@@ -182,6 +182,7 @@ RT_RET RTNDKNodePlayer::setDataSource(RTMediaUri *mediaUri) {
     // nodebus be operated by multithread
     RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
 
+    // MediaPlayer StateMachine: valid state -- RT_STATE_IDLE
     UINT32 curState = getCurState();
     switch (curState) {
       case RT_STATE_IDLE:
@@ -195,8 +196,8 @@ RT_RET RTNDKNodePlayer::setDataSource(RTMediaUri *mediaUri) {
                     RT_LOGE("fail to init demuxer");
                     mPlayerCtx->mLooper->flush();
                     RTMessage* msg = new RTMessage(RT_MEDIA_ERROR, RT_NULL, this);
-                    mPlayerCtx->mLooper->send(msg, 0);
-                    mPlayerCtx->mLooper->requestExit();
+                    mPlayerCtx->mLooper->post(msg, 0);
+                    // mPlayerCtx->mLooper->requestExit();
                     return RT_ERR_UNKNOWN;
                 }
             } else {
@@ -217,6 +218,7 @@ RT_RET RTNDKNodePlayer::prepare() {
         return err;
     }
 
+    // MediaPlayer StateMachine: valid state -- RT_STATE_INITIALIZED&RT_STATE_STOPPED
     UINT32 curState = this->getCurState();
     if ((RT_STATE_INITIALIZED != curState) && (RT_STATE_STOPPED != curState)) {
         RTMediaUtil::dumpStateError(curState, __FUNCTION__);
@@ -256,6 +258,7 @@ RT_RET RTNDKNodePlayer::start() {
     // nodebus be operated by multithread
     RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
 
+    // MediaPlayer StateMachine: valid state -- RT_STATE_INITIALIZED&RT_STATE_STOPPED
     UINT32 curState = getCurState();
     RTMessage* msg  = RT_NULL;
     switch (curState) {
@@ -292,6 +295,7 @@ RT_RET RTNDKNodePlayer::pause() {
     // nodebus be operated by multithread
     RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
 
+    // MediaPlayer StateMachine: valid state -- RT_STATE_PAUSED&RT_STATE_STARTED
     UINT32 curState = this->getCurState();
     RTMessage* msg  = RT_NULL;
     switch (curState) {
@@ -299,7 +303,7 @@ RT_RET RTNDKNodePlayer::pause() {
         RTMediaUtil::dumpStateError(curState, __FUNCTION__);
         break;
       case RT_STATE_STARTED:
-        // @TODO: do pause player
+        // pause all nodes in node-bus
         mNodeBus->excuteCommand(RT_NODE_CMD_PAUSE);
 
         msg = new RTMessage(RT_MEDIA_PAUSED, RT_NULL, this);
@@ -322,6 +326,7 @@ RT_RET RTNDKNodePlayer::stop() {
     UINT32 curState = this->getCurState();
     RTMessage* msg  = RT_NULL;
     switch (curState) {
+      case RT_STATE_IDLE:
       case RT_STATE_STOPPED:
         RTMediaUtil::dumpStateError(curState, __FUNCTION__);
         break;
@@ -400,7 +405,15 @@ RT_RET RTNDKNodePlayer::setLooping(RT_BOOL loop) {
     if (RT_OK != err) {
         return err;
     }
-    mPlayerCtx->mLooping = loop;
+
+    UINT32 curState = this->getCurState();
+    switch (curState) {
+      case RT_STATE_IDLE:
+        break;
+      default:
+        mPlayerCtx->mLooping = loop;
+        break;
+    }
     return err;
 }
 
@@ -622,7 +635,18 @@ RT_RET RTNDKNodePlayer::checkRuntime(const char* caller) {
 RT_RET RTNDKNodePlayer::notifyListener(INT32 msg, INT32 ext1, INT32 ext2, void* ptr) {
     if (RT_NULL != mPlayerCtx->mListener) {
         mPlayerCtx->mListener->notify(msg, ext1, ext1, ptr);
+        return RT_OK;
     }
+
+    // no listener, so try do more things
+    switch (msg) {
+      case RT_MEDIA_ERROR:
+          this->reset();
+          break;
+      default:
+          break;
+    }
+    return RT_OK;
 }
 
 RT_RET RTNDKNodePlayer::onEventReceived(struct RTMessage* msg) {
@@ -668,7 +692,7 @@ RT_RET RTNDKNodePlayer::onEventReceived(struct RTMessage* msg) {
       case RT_MEDIA_SET_VIDEO_SIZE:
       case RT_MEDIA_SKIPPED:
       case RT_MEDIA_INFO:
-        this->notifyListener(RT_MEDIA_SEEK_COMPLETE, arg1, arg2, RT_NULL);
+        this->notifyListener(msg->getWhat(), arg1, arg2, RT_NULL);
         break;
       default:
         break;
