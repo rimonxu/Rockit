@@ -64,7 +64,8 @@ class RTSinkAudioALSA : public RTNodeAudioSink {
     virtual RT_RET onReset();
 
  private:
-    RT_RET openSoundCard(RtMetaData *metadata);
+    RT_RET openAlsaSound();
+    RT_RET setAlsaSoundParams(RtMetaData *metaData);
     RT_RET closeSoundCard();
     RT_VOID usleepData(INT32 samplerate, INT32 channels, INT32 bytes);
 

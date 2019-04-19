@@ -77,10 +77,29 @@ RT_RET RTSinkAudioALSA::init(RtMetaData *metaData) {
     if (!mALSASinkCtx) {
         metaData->findInt32(kKeyACodecSampleRate, &mSampleRate);
         metaData->findInt32(kKeyACodecChannels, &mChannels);
-        if (RT_OK != openSoundCard(metaData)) {
-            usleepData(mSampleRate, mChannels, mDataSize);
-            RT_LOGE("openSoundCard fail!");
+        if (RT_OK == openAlsaSound()) {
+            if (RT_OK != setAlsaSoundParams(metaData)) {
+                usleepData(mSampleRate, mChannels, mDataSize);
+                RT_LOGE("setAlsaSoundParams fail!");
+            }
+        } else {
+            RT_LOGE("openAlsaSound fail!");
         }
+    } else {
+        INT32 tmpChannels = 0;
+        INT32 tmpSamplerate = 0;
+        metaData->findInt32(kKeyACodecSampleRate, &tmpSamplerate);
+        metaData->findInt32(kKeyACodecChannels, &tmpChannels);
+        RT_LOGD("tmpChannels = %d, tmpSamplerate =%d", tmpChannels, tmpSamplerate);
+        if ((tmpChannels != mChannels) || (tmpSamplerate != mSampleRate)) {
+            if (RT_OK != setAlsaSoundParams(metaData)) {
+                usleepData(mSampleRate, mChannels, mDataSize);
+                RT_LOGE("setAlsaSoundParams fail!");
+            }
+        }
+
+        mChannels = tmpChannels;
+        mSampleRate = tmpSamplerate;
     }
     return RT_OK;
 }
@@ -268,18 +287,21 @@ RT_RET RTSinkAudioALSA::onReset() {
     return RT_OK;
 }
 
-RT_RET RTSinkAudioALSA::openSoundCard(RtMetaData *metaData) {
-    RT_RET err = RT_OK;
-
-    mALSASinkCtx = alsa_snd_create(WRITE_DEVICE_NAME, metaData);
+RT_RET RTSinkAudioALSA::openAlsaSound() {
+    mALSASinkCtx = alsa_snd_create(WRITE_DEVICE_NAME);
 
     if (RT_NULL == mALSASinkCtx) {
         RT_LOGE("Fail to alsa_snd_create");
         return RT_ERR_NULL_PTR;
     }
 
-    // try to config hw params of alsa.
-    err = alsa_set_snd_hw_params(mALSASinkCtx, 0);
+    return RT_OK;
+}
+
+RT_RET RTSinkAudioALSA::setAlsaSoundParams(RtMetaData *metaData) {
+    RT_RET err = RT_OK;
+    //  try to config hw params of alsa.
+    err = alsa_set_snd_hw_params(mALSASinkCtx, metaData);
     if (err == RT_ERR_INIT) {
         RT_LOGE("Failed to set HW parameters!");
         closeSoundCard();
@@ -291,8 +313,10 @@ RT_RET RTSinkAudioALSA::openSoundCard(RtMetaData *metaData) {
     if (err == RT_ERR_INIT) {
         RT_LOGE("Failed to set SW parameters!");
         closeSoundCard();
+        return err;
     }
-    return err;
+
+    return RT_OK;
 }
 
 RT_RET RTSinkAudioALSA::closeSoundCard() {

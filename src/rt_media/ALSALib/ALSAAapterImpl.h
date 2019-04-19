@@ -32,6 +32,7 @@
 #define DEFAULT_OUT_PERIODSIZE  1024
 #define DEFAULT_OUT_PERIODS     4
 #define DEFAULT_SAMPLE_RATE     44100
+#define DEFAULT_CHANNEL         2
 
 typedef struct AlsaParamsContext_ {
     snd_pcm_format_t    format;
@@ -48,13 +49,13 @@ typedef struct ALSASinkContext_ {
     snd_pcm_t           *theInstance;
 } ALSASinkContext;
 
-RT_RET alsa_set_snd_hw_params(ALSASinkContext *ctx, int flag);
+RT_RET alsa_set_snd_hw_params(ALSASinkContext *ctx, RtMetaData *metaData);
 
 RT_RET alsa_set_snd_sw_params(ALSASinkContext *ctx);
 
 int alsa_snd_write_data(ALSASinkContext *ctx, void *data, int bytes);
 
-ALSASinkContext* alsa_snd_create(const char *name, RtMetaData *metadata);
+ALSASinkContext* alsa_snd_create(const char *name);
 
 RT_VOID alsa_snd_destroy(ALSASinkContext *ctx);
 

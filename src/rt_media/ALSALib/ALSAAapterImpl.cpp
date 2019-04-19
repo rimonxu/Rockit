@@ -41,9 +41,18 @@ INT32 check_snd_pcm_sw_error(INT32 err, const char* caller) {
     return RT_OK;
 }
 
-RT_RET alsa_set_snd_hw_params(ALSASinkContext *ctx, int flag) {
+RT_RET alsa_set_snd_hw_params(ALSASinkContext *ctx, RtMetaData *metaData) {
     snd_pcm_hw_params_t *hardwareParams;
     int err;
+
+    INT32 channels;
+    metaData->findInt32(kKeyACodecChannels, &channels);
+    INT32 samplerate;
+    metaData->findInt32(kKeyACodecSampleRate, &samplerate);
+    RT_LOGD("alsa_set_snd_hw_params: channels %d, samplerate %d", channels, samplerate);
+
+    ctx->mAlsaParamsCtx->sampleRate = samplerate;
+    ctx->mAlsaParamsCtx->channels = channels;
 
     snd_pcm_uframes_t bufferSize = ctx->mAlsaParamsCtx->bufferSize;
     snd_pcm_uframes_t periodSize = ctx->mAlsaParamsCtx->periodSize;
@@ -61,6 +70,7 @@ RT_RET alsa_set_snd_hw_params(ALSASinkContext *ctx, int flag) {
                              : "UNKNOWN";
 
     err = snd_pcm_hw_params_malloc(&hardwareParams);
+
     if (RT_OK != check_snd_pcm_sw_error(err, "snd_pcm_hw_params_malloc")) goto done;
 
     err = snd_pcm_hw_params_any(ctx->theInstance, hardwareParams);
@@ -126,8 +136,8 @@ RT_RET alsa_set_snd_hw_params(ALSASinkContext *ctx, int flag) {
         if (RT_OK != check_snd_pcm_sw_error(err, "snd_pcm_hw_params_set_period_time_near")) goto done;
     }
 
-    RT_LOGD("audio type flag: %d\n", flag);
-    // err = snd_pcm_hw_params_set_flags(ctx->theInstance, hardwareParams, flag);
+    //  RT_LOGD("audio type flag: %d\n", flag);
+    //  err = snd_pcm_hw_params_set_flags(ctx->theInstance, hardwareParams, flag);
     if (err < 0)
         RT_LOGE("snd_pcm_hw_params_set_flags fail.");
 
@@ -239,29 +249,24 @@ int alsa_snd_write_data(ALSASinkContext *ctx, void *data, int bytes) {
     return sent;
 }
 
-ALSASinkContext* alsa_snd_create(const char *name, RtMetaData *metadata) {
+ALSASinkContext* alsa_snd_create(const char *name) {
     AlsaParamsContext *params_ctx = RT_NULL;
     ALSASinkContext *ctx = rt_malloc(ALSASinkContext);
     ctx->theInstance = RT_NULL;
 
     ctx->mAlsaParamsCtx = rt_malloc(AlsaParamsContext);
     params_ctx = ctx->mAlsaParamsCtx;
-    INT32 channels;
-    metadata->findInt32(kKeyACodecChannels, &channels);
-    INT32 samplerate;
-    metadata->findInt32(kKeyACodecSampleRate, &samplerate);
-
-    RT_LOGD("alsa_snd_create channels =%d,samplerate =%d", channels, samplerate);
-
+    //  init params
     params_ctx->format = SND_PCM_FORMAT_S16_LE;
-    params_ctx->channels = channels;
-    params_ctx->sampleRate = samplerate;
+    params_ctx->channels = DEFAULT_CHANNEL;
+    params_ctx->sampleRate = DEFAULT_SAMPLE_RATE;
     params_ctx->latency = DEFAULT_OUT_LATENCY;
     params_ctx->periodSize = DEFAULT_OUT_PERIODSIZE;
     params_ctx->bufferSize = DEFAULT_OUT_BUFFERSIZE;
     params_ctx->periods = DEFAULT_OUT_PERIODS;
 
     snd_pcm_t *pHandle;
+    /* snd_pcm_open()  need 2s*/
     int err = snd_pcm_open(&pHandle, name, SND_PCM_STREAM_PLAYBACK, 0);
     if (RT_OK != check_snd_pcm_sw_error(err, "snd_pcm_open")) goto __FAILED;
 
@@ -276,7 +281,6 @@ __FAILED:
 
     return RT_NULL;
 }
-
 RT_VOID alsa_snd_destroy(ALSASinkContext *ctx) {
     snd_pcm_t *pHandle = ctx->theInstance;
     int err;
