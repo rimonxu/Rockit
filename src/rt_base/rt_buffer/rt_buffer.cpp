@@ -55,20 +55,11 @@ RtBuffer rt_buffer_create(const char *tag, UINT32 capacity) {
     return reinterpret_cast<RtBuffer>(rt_buffer_impl);
 
 __FAILED:
-    if (rt_buffer_impl->meta) {
-        delete rt_buffer_impl->meta;
-        rt_buffer_impl->meta = NULL;
-    }
 
-    if (rt_buffer_impl->data) {
-        rt_free(rt_buffer_impl->data);
-        rt_buffer_impl->data = NULL;
-    }
+    rt_safe_delete(rt_buffer_impl->meta);
+    rt_safe_free(rt_buffer_impl->data);
+    rt_safe_free(rt_buffer_impl);
 
-    if (rt_buffer_impl) {
-        rt_free(rt_buffer_impl);
-        rt_buffer_impl = NULL;
-    }
     return NULL;
 }
 
@@ -84,9 +75,14 @@ RtBuffer rt_buffer_create(const char *tag, void *data, UINT32 capacity) {
     if (NULL != tag && strlen(tag) > 0 && strlen(tag) < TAG_MAX_LENGHT) {
         rt_str_snprintf(rt_buffer_impl->tag, strlen(tag) + 1, "%s", tag);
     }
+
+    rt_buffer_impl->owns_data = false;
+    rt_buffer_impl->data      = data;
+    if ((RT_NULL == data) && (capacity > 0)) {
+        rt_buffer_impl->data      = rt_malloc_size(UINT8, capacity);
+        rt_buffer_impl->owns_data = true;
+    }
     rt_buffer_impl->range_offset = 0;
-    rt_buffer_impl->owns_data    = false;
-    rt_buffer_impl->data         = data;
     rt_buffer_impl->range_length = capacity;
     rt_buffer_impl->capacity     = capacity;
     rt_buffer_impl->meta         = new RtMetaData();
@@ -95,15 +91,9 @@ RtBuffer rt_buffer_create(const char *tag, void *data, UINT32 capacity) {
     return reinterpret_cast<RtBuffer>(rt_buffer_impl);
 
 __FAILED:
-    if (rt_buffer_impl->meta) {
-        delete rt_buffer_impl->meta;
-        rt_buffer_impl->meta = NULL;
-    }
-
-    if (rt_buffer_impl) {
-        rt_free(rt_buffer_impl);
-        rt_buffer_impl = NULL;
-    }
+    rt_safe_delete(rt_buffer_impl->meta);
+    rt_safe_free(rt_buffer_impl->data);
+    rt_safe_free(rt_buffer_impl);
     return NULL;
 }
 
@@ -133,19 +123,14 @@ RT_RET rt_buffer_destroy(RtBuffer *rt_buffer) {
 
     if (rt_buffer_impl->meta) {
         rt_buffer_impl->meta->clear();
-        delete rt_buffer_impl->meta;
-        rt_buffer_impl->meta = NULL;
+        rt_safe_delete(rt_buffer_impl->meta);
     }
 
-    if (rt_buffer_impl->data && rt_buffer_impl->owns_data) {
-        rt_free(rt_buffer_impl->data);
-        rt_buffer_impl->data = NULL;
+    if (rt_buffer_impl->owns_data) {
+        rt_safe_free(rt_buffer_impl->data);
     }
 
-    if (rt_buffer_impl) {
-        rt_free(rt_buffer_impl);
-        rt_buffer_impl = NULL;
-    }
+    rt_safe_free(rt_buffer_impl);
 
     return RT_OK;
 

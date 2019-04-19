@@ -111,7 +111,7 @@ INT8 linked_list_remove(RtLinkedList* self, void* data) {
         } else {
             self->tail = entry->prev;
         }
-        rt_free(entry);
+        rt_safe_free(entry);
         self->size--;
     }  else {
         return RT_ERR_NULL_PTR;
@@ -136,7 +136,7 @@ INT8 linked_list_remove_at(RtLinkedList* self, UINT32 index) {
         } else {
             self->tail = entry->prev;
         }
-        rt_free(temp);
+        rt_safe_free(temp);
         self->size--;
     } else {
         return RT_ERR_NULL_PTR;
@@ -152,7 +152,7 @@ INT8 linked_list_remove_all(RtLinkedList* self) {
         while (entry != RT_NULL) {
             RtLinkedEntry* temp = entry;
             entry = entry->next;
-            rt_free(temp);
+            rt_safe_free(temp);
         }
     }
     self->head = self->tail = RT_NULL;
@@ -238,7 +238,6 @@ INT8 linked_list_set(RtLinkedList* self, size_t index, void* data) {
 INT8 linked_list_destroy(RtLinkedList **self) {
     RT_ASSERT(RT_NULL != *self);
     linked_list_remove_all(*self);
-    rt_free(*self);
-    *self = RT_NULL;
+    rt_safe_free(*self);
     return RT_OK;
 }

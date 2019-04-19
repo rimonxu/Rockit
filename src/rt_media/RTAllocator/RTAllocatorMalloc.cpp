@@ -62,7 +62,9 @@ RT_RET RTAllocatorMalloc::newBuffer(UINT32 width,
 RT_RET RTAllocatorMalloc::freeBuffer(RTMediaBuffer **buffer) {
     if (RT_NULL != *buffer) {
         // allocator_malloc knows how to release buffer
-        rt_free((*buffer)->getData());
+        if (RT_NULL != (*buffer)->getData()) {
+            rt_free((*buffer)->getData());
+        }
         (*buffer)->setData(RT_NULL, 0);
 
         // delete buffer wrapper

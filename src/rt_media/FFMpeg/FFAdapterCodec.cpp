@@ -105,10 +105,8 @@ __FAILED:
         avcodec_free_context(&ctx->mAvCodecCtx);
         ctx->mAvCodecCtx = NULL;
     }
-    if (ctx) {
-        rt_free(ctx);
-        ctx = NULL;
-    }
+    rt_safe_free(ctx);
+
     return NULL;
 }
 
@@ -164,10 +162,9 @@ __FAILED:
         avcodec_free_context(&ctx->mAvCodecCtx);
         ctx->mAvCodecCtx = NULL;
     }
-    if (ctx) {
-        rt_free(ctx);
-        ctx = NULL;
-    }
+
+    rt_safe_free(ctx);
+
     return NULL;
 }
 
@@ -254,10 +251,7 @@ __FAILED:
         avcodec_free_context(&ctx->mAvCodecCtx);
         ctx->mAvCodecCtx = NULL;
     }
-    if (ctx) {
-        rt_free(ctx);
-        ctx = NULL;
-    }
+    rt_safe_free(ctx);
     return NULL;
 }
 
@@ -296,10 +290,8 @@ void fa_video_decode_destroy(FACodecContext **fc) {
     if (*fc && (*fc)->mSwrCtx) {
         swr_free(&((*fc)->mSwrCtx));
     }
-    if (*fc) {
-        rt_free(*fc);
-        *fc = NULL;
-    }
+
+    rt_safe_free(*fc);
 }
 
 void fa_video_encode_destroy(FACodecContext **fc) {
@@ -311,10 +303,7 @@ void fa_video_encode_destroy(FACodecContext **fc) {
         avcodec_free_context(&((*fc)->mAvCodecCtx));
     }
 
-    if (*fc) {
-        rt_free(*fc);
-        *fc = NULL;
-    }
+    rt_safe_free(*fc);
 }
 
 

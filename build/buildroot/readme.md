@@ -59,4 +59,5 @@ $ -- Target packages
 $ -- --  Debugging, profiling and benchmark --> gdb [y] -- full debugger [y]
 $ -- --  Debugging, profiling and benchmark --> strace [y]
 $ -- --  Development tools --> cppunit/gperf [n]
+$ -- --  System tools --> procrank_linux
 ```

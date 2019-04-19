@@ -99,10 +99,10 @@ void rt_hash_table_clear(struct RtHashTable *ht, RT_BOOL free_data) {
         for (node = list->next; node != RT_NULL; node = next) {
             next = node->next;
             remove_at_head(list, node);
-            if (free_data && (NULL != node->data)) {
-                rt_free(node->data);
+            if (free_data) {
+                rt_safe_free(node->data);
             }
-            rt_free(node);
+            rt_safe_free(node);
         }
 
         RT_ASSERT(is_empty_list(& ht->buckets[bucket]));
@@ -187,10 +187,10 @@ RT_BOOL rt_hash_table_remove(struct RtHashTable *ht, const void *key, RT_BOOL fr
        if ((*ht->compare)(node_cur->key, key) == 0) {
            node_old->next = node_cur->next;
            node_cur->next = RT_NULL;
-           if (free_data && NULL != node_cur->data) {
-               rt_free(node_cur->data);
+           if (free_data) {
+               rt_safe_free(node_cur->data);
            }
-           rt_free(node_cur);
+           rt_safe_free(node_cur);
            return RT_TRUE;
        } else {
            node_old = node_cur;

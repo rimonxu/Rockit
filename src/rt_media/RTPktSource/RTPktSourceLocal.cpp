@@ -229,6 +229,7 @@ RT_RET RTPktSourceLocal::queuePacket(RTPacket *pkt) {
         RT_LOGE("unknown type: %d, free pkt", pkt->mType);
         if (pkt->mFuncFree) {
             pkt->mFuncFree(pkt->mRawPtr);
+            pkt->mRawPtr = RT_NULL;
         }
         queueUnusedPacket(pkt);
         ret = RT_ERR_UNKNOWN;
