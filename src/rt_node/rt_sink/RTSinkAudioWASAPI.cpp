@@ -36,7 +36,6 @@
 #include "RTMediaBuffer.h"     // NOLINT
 
 typedef struct _RTSinkAudioCtx {
-    RtMetaData         *mMetaInput;
     RtMutex            *mDataLock;
     RTMsgLooper        *mEventLooper;
     RT_Deque           *mDequeFrame;
@@ -76,8 +75,8 @@ RTSinkAudioWASAPI::~RTSinkAudioWASAPI() {
 
 // override RTNode methods
 RT_RET RTSinkAudioWASAPI::init(RtMetaData *metaData) {
+    // @Best Practice: Just use ,but don't save MetaData
     RTSinkAudioCtx* ctx = reinterpret_cast<RTSinkAudioCtx*>(mNodeContext);
-    ctx->mMetaInput = metaData;
     return RT_OK;
 }
 
@@ -87,7 +86,6 @@ RT_RET RTSinkAudioWASAPI::release() {
 
     rt_safe_delete(ctx->mDataLock);
     rt_safe_delete(ctx->mThread);
-    rt_safe_delete(ctx->mMetaInput);
 
     if (ctx->mDequeFrame != NULL) {
         deque_destory(&ctx->mDequeFrame);
@@ -200,10 +198,6 @@ RT_RET RTSinkAudioWASAPI::setEventLooper(RTMsgLooper* eventLooper) {
 }
 
 RtMetaData* RTSinkAudioWASAPI::queryFormat(RTPortType port) {
-    RTSinkAudioCtx* ctx = reinterpret_cast<RTSinkAudioCtx*>(mNodeContext);
-    if (RT_PORT_INPUT == port) {
-        return ctx->mMetaInput;
-    }
     return RT_NULL;
 }
 

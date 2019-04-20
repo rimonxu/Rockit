@@ -45,7 +45,6 @@
 typedef struct _FFNodeDemuxerCtx {
     FAFormatContext    *mFormatCtx;
     RtMetaData         *mMetaInput;
-    RtMetaData         *mMetaOutput;
 
     RtThread           *mThread;
     RTMsgLooper        *mEventLooper;
@@ -115,6 +114,12 @@ RT_RET FFNodeDemuxer::init(RtMetaData *metaData) {
     RT_RET ret = RT_OK;
     FFNodeDemuxerCtx* ctx = get_demuxer_ctx(mNodeContext);
 
+    if (RT_NULL == metaData) {
+        RT_LOGE("no meta-data to init demuxer");
+        ctx->mNodeState = NODE_STATE_ERROR;
+        return RT_ERR_UNKNOWN;
+    }
+
     const char *uri;
     metaData->findCString(kKeyFormatUri, &uri);
     RT_ASSERT(RT_NULL != uri);
@@ -157,7 +162,6 @@ RT_RET FFNodeDemuxer::release() {
 
     // @review: release memory of node context
     rt_safe_delete(ctx->mMetaInput);
-    rt_safe_delete(ctx->mMetaOutput);
     rt_safe_delete(ctx->mSource);     // implicit call mSource->release()
     rt_safe_free(ctx);
 
@@ -279,9 +283,6 @@ RtMetaData* FFNodeDemuxer::queryFormat(RTPortType port) {
     switch (port) {
     case RT_PORT_INPUT:
         meta = ctx->mMetaInput;
-        break;
-    case RT_PORT_OUTPUT:
-        meta = ctx->mMetaOutput;
         break;
     default:
         break;

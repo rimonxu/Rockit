@@ -101,7 +101,8 @@ FFNodeDecoder::~FFNodeDecoder() {
 }
 
 RT_RET FFNodeDecoder::init(RtMetaData *metadata) {
-    RT_LOGE("init in");
+    RT_LOGD("call, init");
+
     if (!metadata->findInt32(kKeyCodecType, reinterpret_cast<INT32 *>(&mTrackType))) {
         RT_LOGE("track type is unset!!");
         return RT_ERR_UNKNOWN;
@@ -115,11 +116,11 @@ RT_RET FFNodeDecoder::init(RtMetaData *metadata) {
         return RT_ERR_UNKNOWN;
     }
 
+    // @Best Practice: mMetaInput is created by dexmuer, but delete by decoder
     mMetaInput = metadata;
     rt_medatdata_goto_trackpar(metadata, mTrackParms);
 
-    // @review: delayed initialization of MetaOutput,
-    //          because no sink node release meta when node failed to init
+    // @Best Practice: mMetaOutput is created and deleted by decoder
     mMetaOutput = new RtMetaData;
     mMetaOutput->clear();
     switch (mTrackParms->mCodecType) {
@@ -201,6 +202,7 @@ RT_RET FFNodeDecoder::release() {
     rt_safe_delete(mPacketPool);
     rt_safe_delete(mFramePool);
     rt_safe_delete(mMetaInput);
+    rt_safe_delete(mMetaOutput);
 
     // thread release
     rt_safe_delete(mProcThread);

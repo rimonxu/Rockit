@@ -55,7 +55,6 @@ RTSinkAudioALSA::RTSinkAudioALSA()
           mSampleRate(48000),
           mChannels(2),
           mDataSize(4096),
-          mInputMeta(RT_NULL),
           mPlayStatus(PLAY_STOPPED) {
     mThread = new RtThread(sink_audio_alsa_loop, reinterpret_cast<void*>(this));
     mThread->setName("SinkAlsa");
@@ -68,12 +67,11 @@ RTSinkAudioALSA::RTSinkAudioALSA()
 }
 
 RTSinkAudioALSA::~RTSinkAudioALSA() {
-    rt_safe_delete(mInputMeta);
     release();
 }
 
 RT_RET RTSinkAudioALSA::init(RtMetaData *metaData) {
-    mInputMeta = metaData;
+    RT_ASSERT(RT_NULL != metaData);
     if (!mALSASinkCtx) {
         metaData->findInt32(kKeyACodecSampleRate, &mSampleRate);
         metaData->findInt32(kKeyACodecChannels, &mChannels);
