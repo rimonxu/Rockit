@@ -55,7 +55,8 @@ RTSinkAudioALSA::RTSinkAudioALSA()
           mSampleRate(48000),
           mChannels(2),
           mDataSize(4096),
-          mPlayStatus(PLAY_STOPPED) {
+          mPlayStatus(PLAY_STOPPED),
+          mCurPosition(0) {
     mThread = new RtThread(sink_audio_alsa_loop, reinterpret_cast<void*>(this));
     mThread->setName("SinkAlsa");
     mDeque = deque_create(10);
@@ -113,7 +114,7 @@ RT_RET RTSinkAudioALSA::release() {
     rt_safe_delete(mThread);
     rt_safe_delete(mVolManager);
     rt_safe_delete(mLockBuffer);
-
+    mCurPosition = 0;
     closeSoundCard();
     return RT_OK;
 }
@@ -277,6 +278,7 @@ RT_RET RTSinkAudioALSA::onFlush() {
             }
         }
     }
+    mCurPosition = 0;
     return RT_OK;
 }
 
@@ -339,6 +341,7 @@ RT_RET RTSinkAudioALSA::runTask() {
         if (mPlayStatus == PLAY_PAUSED) {
             // RT_LOGD("%s,%d,now runtask is pause",__FUNCTION__,__LINE__);
             usleepData(mSampleRate, mChannels, mDataSize);
+            mCurPosition = 0;
             continue;
         }
         if (!input) {
@@ -346,13 +349,26 @@ RT_RET RTSinkAudioALSA::runTask() {
             pullBuffer(&input);
         }
 
-        if (!input || !input->getData()) {
+        if (!input) {
+            if (mCurPosition != 0) {
+                UINT64 now = RtTime::getNowTimeMs();
+                if (now - mCurPosition > 2000) {
+                    if (RT_NULL != mEventLooper) {
+                        RT_LOGD("already 2s no data, post EOS message");
+                        mCurPosition = 0;
+                        RTMessage* eosMsg = new RTMessage(RT_MEDIA_PLAYBACK_COMPLETE, nullptr, nullptr);
+                        mEventLooper->post(eosMsg);
+                    }
+                }
+            }
             RtTime::sleepMs(5);
             continue;
         }
 
         if (mALSASinkCtx && input->getLength()) {
             ret = alsa_snd_write_data(mALSASinkCtx, reinterpret_cast<void *>(input->getData()), input->getLength());
+            mCurPosition = RtTime::getNowTimeMs();
+
             if (ret != input->getLength()) {
                 usleepData(mSampleRate, mChannels, mDataSize);
             }
@@ -369,6 +385,7 @@ RT_RET RTSinkAudioALSA::runTask() {
 
         if (eos && (RT_NULL != mEventLooper)) {
             RT_LOGD("render EOS Flag, post EOS message");
+            mCurPosition = 0;
             RTMessage* eosMsg = new RTMessage(RT_MEDIA_PLAYBACK_COMPLETE, nullptr, nullptr);
             mEventLooper->post(eosMsg);
         }

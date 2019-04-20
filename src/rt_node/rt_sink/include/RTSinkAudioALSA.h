@@ -86,6 +86,7 @@ class RTSinkAudioALSA : public RTNodeAudioSink {
     INT32              mSampleRate;
     INT32              mChannels;
     INT32              mDataSize;
+    UINT64             mCurPosition;
 
     typedef enum _audio_play_status {
         PLAY_STOPPED = 0,  ///  < Playback stopped or has not started yet.
