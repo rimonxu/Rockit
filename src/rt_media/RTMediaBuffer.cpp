@@ -101,7 +101,7 @@ void RTMediaBuffer::setData(void* data, UINT32 size) {
     mData = data;
     mSize = size;
     setRange(0, size);
-    mOwnsData = RT_FALSE;
+    mOwnsData = RT_TRUE;
     if (RT_NULL != mMetaData) {
         mMetaData->clear();
     } else {
