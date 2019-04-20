@@ -39,7 +39,12 @@ static void rt_log_full(rt_log_callback log_cb, const char *tag,
                         const char *fmt, const char *fname,
                         const UINT16 row, va_list args) {
     char line[MAX_LINE_LEN];
-    snprintf(line, sizeof(line), "{%-18.18s:%03d} %s\r\n", fname, row, fmt);
+    UINT64 now = RtTime::getNowTimeMs();
+    int hour  = now / 1000 / 60 / 60 % 24;
+    int min  = now / 1000 / 60 % 60;
+    int sec = now / 1000 % 60;
+    int msec = now % 1000;
+    snprintf(line, sizeof(line), "%02d:%02d:%02d-%03d {%-18.18s:%03d} %s\r\n", hour, min, sec, msec,  fname, row, fmt);
     log_cb(tag, line, args);
 }
 
