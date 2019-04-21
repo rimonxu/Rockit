@@ -26,18 +26,16 @@
 
 struct NodeBusContext;
 
-typedef enum _BUS_LINE_TYPE {
-    BUS_LINE_ROOT  = 0,
-    BUS_LINE_VIDEO,
-    BUS_LINE_AUDIO,
-    BUS_LINE_SUBTE,
-    BUS_LINE_MAX,
-} BUS_LINE_TYPE;
-
 typedef struct _BUS_LINE_NAME {
     UINT32      cmd;
     const char *name;
 } BUS_LINE_NAME;
+
+typedef struct _NodeCapability {
+    RT_NODE_TYPE  mNodeType;
+    BUS_LINE_TYPE mLineType;
+    const char*   mName;
+} RTNodeCapability;
 
 static const BUS_LINE_NAME mBusLineNames[] = {
     { BUS_LINE_ROOT,   "BUS_LINE_ROOT" },
@@ -66,8 +64,8 @@ class RTNodeBus {
     RT_RET      summary(INT32 fd, RT_BOOL full = RT_FALSE);
     RT_RET      registerStub(RTNodeStub *nStub);
     RT_RET      registerNode(RTNode     *pNode);
-    RTNodeStub* findStub(RT_NODE_TYPE nType, BUS_LINE_TYPE lType);
-    RTNode*     findNode(RT_NODE_TYPE nType, BUS_LINE_TYPE lType);
+    RTNodeStub* findStub(RTNodeCapability *capability);
+    RTNode*     findNode(RTNodeCapability *capability);
 
 
  private:

@@ -323,6 +323,7 @@ struct RTNodeStub hw_node_mpi_decoder {
     .mNodeType       = RT_NODE_TYPE_DECODER,
     .mUsePool        = RT_TRUE,
     .mNodeName       = "hw_node_mpi_decoder",
+    .mNodeRole       = "video",
     .mNodeVersion    = "v1.0",
 };
 

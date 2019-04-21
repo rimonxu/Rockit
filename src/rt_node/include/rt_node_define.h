@@ -41,6 +41,14 @@ typedef enum _RT_NODE_TYPE {
     RT_NODE_TYPE_MAX,
 } RT_NODE_TYPE;
 
+typedef enum _BUS_LINE_TYPE {
+    BUS_LINE_ROOT  = 0,
+    BUS_LINE_VIDEO,
+    BUS_LINE_AUDIO,
+    BUS_LINE_SUBTE,
+    BUS_LINE_MAX,
+} BUS_LINE_TYPE;
+
 typedef enum _RT_NODE_CMD {
     RT_NODE_CMD_BASE  = 2000,
     RT_NODE_CMD_INIT,

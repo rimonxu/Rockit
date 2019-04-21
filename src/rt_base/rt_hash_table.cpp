@@ -125,7 +125,7 @@ void rt_hash_table_dump(struct RtHashTable *ht) {
     }
 }
 
-static struct rt_hash_node * get_node(struct RtHashTable *ht, const void *key) {
+struct rt_hash_node* rt_hash_table_find_root(struct RtHashTable *ht, const void *key) {
     const UINT32 hash_value = (*ht->hash)(ht->num_buckets, key);
     const UINT32 bucket     = hash_value % ht->num_buckets;
     struct rt_hash_node *list, *node;
@@ -141,7 +141,7 @@ static struct rt_hash_node * get_node(struct RtHashTable *ht, const void *key) {
 }
 
 void *rt_hash_table_find(struct RtHashTable *ht, const void *key) {
-    struct rt_hash_node *hn = get_node(ht, key);
+    struct rt_hash_node *hn = rt_hash_table_find_root(ht, key);
 
     return (hn == NULL) ? NULL : hn->data;
 }
@@ -165,7 +165,7 @@ RT_BOOL rt_hash_table_replace(
         struct RtHashTable *ht,
         const void *key,
         void *data) {
-    struct rt_hash_node *node = get_node(ht, key);
+    struct rt_hash_node *node = rt_hash_table_find_root(ht, key);
     if (RT_NULL != node) {
         node->data = data;
         return RT_TRUE;

@@ -268,5 +268,6 @@ struct RTNodeStub rt_sink_display_awindow {
     .mNodeType       = RT_NODE_TYPE_SINK,
     .mUsePool        = RT_FALSE,
     .mNodeName       = "rt_sink_awindow",
+    .mNodeRole       = "video",
     .mNodeVersion    = "v1.0",
 };

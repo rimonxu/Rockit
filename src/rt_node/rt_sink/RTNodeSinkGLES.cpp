@@ -247,5 +247,6 @@ struct RTNodeStub rt_sink_display_gles {
     .mNodeType       = RT_NODE_TYPE_SINK,
     .mUsePool        = RT_FALSE,
     .mNodeName       = "rt_sink_gles2.0",
+    .mNodeRole       = "video",
     .mNodeVersion    = "v1.0",
 };

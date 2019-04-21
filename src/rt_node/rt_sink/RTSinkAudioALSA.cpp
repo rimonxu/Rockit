@@ -404,5 +404,6 @@ struct RTNodeStub rt_sink_audio_alsa {
     .mNodeType     = RT_NODE_TYPE_SINK,
     .mUsePool      = RT_TRUE,
     .mNodeName     = "rt_sink_audio_alsa",
+    .mNodeRole     = "audio",
     .mNodeVersion  = "v1.0",
 };

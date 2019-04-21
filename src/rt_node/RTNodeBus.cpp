@@ -277,28 +277,75 @@ RT_RET RTNodeBus::registerNode(RTNode *pNode) {
     return RT_OK;
 }
 
+static BUS_LINE_TYPE probeBusType(const char* nodeRole, BUS_LINE_TYPE lType) {
+    switch (lType) {
+      case BUS_LINE_ROOT:
+        if (strstr(nodeRole, "demuxer")) {
+            return BUS_LINE_ROOT;
+        }
+        break;
+      case BUS_LINE_VIDEO:
+        if (strstr(nodeRole, "video")) {
+            return BUS_LINE_VIDEO;
+        }
+        break;
+      case BUS_LINE_AUDIO:
+        if (strstr(nodeRole, "audio")) {
+            return BUS_LINE_AUDIO;
+        }
+        break;
+      case BUS_LINE_SUBTE:
+        if (strstr(nodeRole, "subte")) {
+            return BUS_LINE_SUBTE;
+        }
+        break;
+      default:
+        break;
+    }
+
+    return BUS_LINE_MAX;
+}
+
 // @TODO find NodeStub by MIME
-RTNodeStub* RTNodeBus::findStub(RT_NODE_TYPE nType, BUS_LINE_TYPE lType) {
+RTNodeStub* RTNodeBus::findStub(RTNodeCapability *capability) {
     RT_ASSERT(RT_NULL != mBusCtx);
 
-    void* data = rt_hash_table_find(mBusCtx->mNodeAll,
-                     reinterpret_cast<void *>(nType));
-    if (RT_NULL != data) {
-        return reinterpret_cast<RTNodeStub*>(data);
+    RTNodeStub* stub = RT_NULL;
+    struct rt_hash_node* hashNode = RT_NULL;
+    struct rt_hash_node* rootNode = rt_hash_table_find_root(mBusCtx->mNodeAll,
+                                    reinterpret_cast<void *>(capability->mNodeType));
+
+    for (hashNode = rootNode; hashNode != RT_NULL; hashNode = hashNode->next) {
+        stub = reinterpret_cast<RTNodeStub*>(hashNode->data);
+        if (capability->mLineType == probeBusType(stub->mNodeRole, capability->mLineType)) {
+            break;
+        } else {
+            stub = RT_NULL;
+        }
     }
-    return RT_NULL;
+
+    return stub;
 }
 
 // @TODO find RTNode by MIME
-RTNode* RTNodeBus::findNode(RT_NODE_TYPE nType, BUS_LINE_TYPE lType) {
+RTNode* RTNodeBus::findNode(RTNodeCapability *capability) {
     RT_ASSERT(RT_NULL != mBusCtx);
 
-    void* data = rt_hash_table_find(mBusCtx->mNodeBus,
-                     reinterpret_cast<void *>(nType));
-    if (RT_NULL != data) {
-        return reinterpret_cast<RTNode*>(data);
+    RTNode* node = RT_NULL;
+    struct rt_hash_node* hashNode = RT_NULL;
+    struct rt_hash_node* rootNode = rt_hash_table_find_root(mBusCtx->mNodeBus,
+                                    reinterpret_cast<void *>(capability->mNodeType));
+
+    for (hashNode = rootNode; hashNode != RT_NULL; hashNode = hashNode->next) {
+        node = reinterpret_cast<RTNode*>(hashNode->data);
+        if (capability->mLineType == probeBusType(node->queryStub()->mNodeRole, capability->mLineType)) {
+            break;
+        } else {
+            node = RT_NULL;
+        }
     }
-    return RT_NULL;
+
+    return node;
 }
 
 RT_RET RTNodeBus::releaseNodes() {
@@ -479,7 +526,10 @@ RTNode* bus_find_and_add_codec(RTNodeBus *pNodeBus, RTNode *demuxer, \
 
     if (RT_NULL != node_meta) {
         // @TODO create codec by MIME
-        node_stub = pNodeBus->findStub(RT_NODE_TYPE_DECODER, lType);
+        RTNodeCapability capability;
+        capability.mNodeType = RT_NODE_TYPE_DECODER;
+        capability.mLineType = lType;
+        node_stub = pNodeBus->findStub(&capability);
         pNodeBus->setMemAllocator(node_meta);
     }
 

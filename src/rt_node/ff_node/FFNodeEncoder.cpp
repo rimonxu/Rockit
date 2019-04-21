@@ -312,6 +312,7 @@ struct RTNodeStub ff_node_video_encoder {
     .mNodeType       = RT_NODE_TYPE_ENCODER,
     .mUsePool        = RT_TRUE,
     .mNodeName       = "ff_node_video_encoder",
+    .mNodeRole       = "video,audio",
     .mNodeVersion    = "v1.0",
 };
 

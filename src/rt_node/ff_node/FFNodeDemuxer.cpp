@@ -518,5 +518,6 @@ struct RTNodeStub ff_node_demuxer {
     .mNodeType       = RT_NODE_TYPE_DEMUXER,
     .mUsePool        = RT_FALSE,
     .mNodeName       = "ff_node_demuxer",
+    .mNodeRole       = "demuxer",
     .mNodeVersion    = "v1.0",
 };

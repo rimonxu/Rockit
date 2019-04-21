@@ -116,6 +116,7 @@ struct RTNodeStub {
     const RT_NODE_TYPE mNodeType;
     const RT_BOOL      mUsePool;
     const char*        mNodeName;
+    const char*        mNodeRole;
     const char*        mNodeVersion;
 };
 

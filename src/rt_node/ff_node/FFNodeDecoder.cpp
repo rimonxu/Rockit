@@ -510,6 +510,7 @@ struct RTNodeStub ff_node_decoder {
     .mNodeType       = RT_NODE_TYPE_DECODER,
     .mUsePool        = RT_TRUE,
     .mNodeName       = "ff_node_decoder",
+    .mNodeRole       = "video,audio",
     .mNodeVersion    = "v1.0",
 };
 

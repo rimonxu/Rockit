@@ -302,6 +302,7 @@ struct RTNodeStub rt_sink_audio_wasapi {
     .mNodeType       = RT_NODE_TYPE_SINK,
     .mUsePool        = RT_FALSE,
     .mNodeName       = "rt_sink_wasapi",
+    .mNodeRole       = "audio",
     .mNodeVersion    = "v1.0",
 };
 

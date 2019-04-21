@@ -49,8 +49,8 @@ struct RtHashTable *rt_hash_table_create(UINT32 num_buckets,
 void   rt_hash_table_destory(struct RtHashTable *hash, RT_BOOL free_data = RT_FALSE);
 void   rt_hash_table_dump(struct RtHashTable *hash);
 void   rt_hash_table_clear(struct RtHashTable *hash, RT_BOOL free_data = RT_FALSE);
-void  *rt_hash_table_find(struct RtHashTable *hash,
-                                 const void *key);
+void  *rt_hash_table_find(struct RtHashTable *hash, const void *key);
+struct rt_hash_node* rt_hash_table_find_root(struct RtHashTable *hash, const void *key);
 void   rt_hash_table_insert(struct RtHashTable *hash,
                                     const void *key,
                                     void *data);
