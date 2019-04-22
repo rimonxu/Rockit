@@ -31,11 +31,11 @@ typedef struct _BUS_LINE_NAME {
     const char *name;
 } BUS_LINE_NAME;
 
-typedef struct _NodeCapability {
+typedef struct _RTNodeInfo {
     RT_NODE_TYPE  mNodeType;
     BUS_LINE_TYPE mLineType;
     const char*   mName;
-} RTNodeCapability;
+} RTNodeInfo;
 
 static const BUS_LINE_NAME mBusLineNames[] = {
     { BUS_LINE_ROOT,   "BUS_LINE_ROOT" },
@@ -64,9 +64,10 @@ class RTNodeBus {
     RT_RET      summary(INT32 fd, RT_BOOL full = RT_FALSE);
     RT_RET      registerStub(RTNodeStub *nStub);
     RT_RET      registerNode(RTNode     *pNode);
-    RTNodeStub* findStub(RTNodeCapability *capability);
-    RTNode*     findNode(RTNodeCapability *capability);
-
+    RT_RET      registerMetadata(RtMetaData *codecMeta);
+    RTNodeStub* findStub(RTNodeInfo *nodeInfo);
+    RTNode*     findNode(RTNodeInfo *nodeInfo);
+    RtMetaData* findMetadata(RTNodeInfo *nodeInfo);
 
  private:
     RT_RET      registerCoreStubs();
@@ -74,6 +75,7 @@ class RTNodeBus {
     RT_RET      nodeChainDriver(RTNode *pNode, BUS_LINE_TYPE lType);
     RT_RET      nodeChainDumper(BUS_LINE_TYPE lType);
     RT_RET      clearNodeBus();
+
 
  private:
     struct NodeBusContext* mBusCtx;

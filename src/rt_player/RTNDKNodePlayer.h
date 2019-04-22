@@ -67,6 +67,7 @@ class RTNDKNodePlayer : public RTMsgHandler {
 
     /* callback */
     RT_RET setCallBack(RT_CALLBACK_T callback, int p_event, void *p_data);
+    RT_RET    setCodecMeta(void *p_metadata);
 
  private:
     RT_RET    postSeekIfNecessary();

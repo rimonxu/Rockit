@@ -187,7 +187,7 @@ RT_RET RTNDKNodePlayer::setDataSource(RTMediaUri *mediaUri) {
     switch (curState) {
       case RT_STATE_IDLE:
         if (mediaUri->mUri[0] == RT_NULL) {
-            this->setCurState(RT_STATE_IDLE);
+            this->setCurState(RT_STATE_INITIALIZED);
         } else {
             mPlayerCtx->mProtocolType = RTMediaUtil::getMediaProtocol(mediaUri->mUri);
             err = mNodeBus->autoBuild(mediaUri);
@@ -683,10 +683,13 @@ RT_RET RTNDKNodePlayer::onEventReceived(struct RTMessage* msg) {
       case RT_MEDIA_TIMED_TEXT:
         RT_LOGE("@todo, timed-text...");
         break;
+      case RT_MEDIA_ERROR:
+       if (mPlayerCtx->mRT_Callback != RT_NULL) {
+           mPlayerCtx->mRT_Callback(mPlayerCtx->mRT_Callback_Type, mPlayerCtx->mRT_Callback_Data);
+      }
       case RT_MEDIA_STARTED:
       case RT_MEDIA_PREPARED:
       case RT_MEDIA_PAUSED:
-      case RT_MEDIA_ERROR:
       case RT_MEDIA_STOPPED:
       case RT_MEDIA_BUFFERING_UPDATE:
       case RT_MEDIA_SET_VIDEO_SIZE:
@@ -760,30 +763,26 @@ RT_RET RTNDKNodePlayer::startDataLooper() {
 
 RT_RET RTNDKNodePlayer::writeData(const char * data, const UINT32 length, int flag, int type) {
     RT_ASSERT(RT_NULL != mPlayerCtx);
-    RT_LOGD("RTNDKNodePlayer::writeData IN");
+    RT_LOGD("RTNDKNodePlayer::writeData length = %d", length);
     if (RT_WRITEDATA_PCM == flag) {
-        RTMediaBuffer* esPacket = RT_NULL;
-        RTNode* decoder   = mNodeBus->getRootNode(BUS_LINE_AUDIO);
-        if (decoder != RT_NULL) {
-            {
-                RT_RET err = RTNodeAdapter::dequeCodecBuffer(decoder, &esPacket, RT_PORT_INPUT);
-                if (RT_NULL != esPacket) {
-                    if (length > 0) {
-                        char *tempdata = rt_malloc_size(char, length);
-                        rt_memcpy(tempdata, data, length);
-                        esPacket->setData(tempdata, length);
-                    } else {
-                        RT_LOGD("RTNDKNodePlayer::writeData  eos");
-                        esPacket->setData(NULL, 0);
-                        esPacket->getMetaData()->setInt32(kKeyFrameEOS, 1);
-                    }
-                    RTNodeAdapter::pushBuffer(decoder, esPacket);
-                } else {
-                    RT_LOGD("writeData list null");
-                }
+        RTNodeInfo nodeInfo;
+        nodeInfo.mNodeType = RT_NODE_TYPE_SINK;
+        nodeInfo.mLineType = BUS_LINE_AUDIO;
+        RTNodeAudioSink* audiosink = reinterpret_cast<RTNodeAudioSink*>(mNodeBus->findNode(&nodeInfo));
+        if (audiosink != RT_NULL) {
+            RTMediaBuffer* esPacket = RT_NULL;
+            if (length > 0) {
+                char *tempdata = rt_malloc_size(char, length);
+                rt_memcpy(tempdata, data, length);
+                esPacket = new RTMediaBuffer(tempdata, length);
+            } else {
+                RT_LOGD("RTNDKNodePlayer::writeData  eos");
+                esPacket = new RTMediaBuffer(NULL, 0);
+                esPacket->getMetaData()->setInt32(kKeyFrameEOS, 1);
             }
+            RTNodeAdapter::pushBuffer(audiosink, esPacket);
         } else {
-            RT_LOGD("writeData decoder null");
+            RT_LOGD("writeData err , sink null");
         }
     } else if (RT_WRITEDATA_TS == flag) {
     } else {
@@ -803,15 +802,34 @@ RT_RET RTNDKNodePlayer::setCallBack(RT_CALLBACK_T callback, int p_event, void *p
     return RT_OK;
 }
 
+RT_RET RTNDKNodePlayer::setCodecMeta(void *p_metadata) {
+    RT_LOGD("RTNDKNodePlayer::setCodecMeta");
+    RT_ASSERT(RT_NULL != mPlayerCtx);
+    mNodeBus->registerMetadata(reinterpret_cast<RtMetaData *>(p_metadata));
+}
+
 RT_RET RTNDKNodePlayer::startAudioPlayerProc() {
     RT_RET           err       = RT_OK;
+    RTMediaBuffer* frame       = RT_NULL;
+    RTMediaBuffer* esPacket    = RT_NULL;
+
     RTNode*          root      = mNodeBus->getRootNode(BUS_LINE_ROOT);
     RTNodeDemuxer*   demuxer   = reinterpret_cast<RTNodeDemuxer*>(root);
-    RTNode*          decoder   = mNodeBus->getRootNode(BUS_LINE_AUDIO);
-    RTNodeAudioSink* audiosink = RT_NULL;
+
+    // find working decoder node
+    RTNodeInfo nodeInfo;
+    nodeInfo.mNodeType = RT_NODE_TYPE_DECODER;
+    nodeInfo.mLineType = BUS_LINE_AUDIO;
+    RTNode*  decoder   = mNodeBus->findNode(&nodeInfo);
     if (RT_NULL != decoder) {
-        audiosink = reinterpret_cast<RTNodeAudioSink*>(decoder->mNext);
         decoder->setEventLooper(mPlayerCtx->mLooper);
+    }
+
+    // find working sink node
+    nodeInfo.mNodeType = RT_NODE_TYPE_SINK;
+    nodeInfo.mLineType = BUS_LINE_AUDIO;
+    RTNodeAudioSink* audiosink = reinterpret_cast<RTNodeAudioSink*>(mNodeBus->findNode(&nodeInfo));
+    if (RT_NULL != audiosink) {
         audiosink->setEventLooper(mPlayerCtx->mLooper);
     }
 
@@ -819,14 +837,11 @@ RT_RET RTNDKNodePlayer::startAudioPlayerProc() {
         return RT_ERR_BAD;
     }
 
-    RTMediaBuffer* frame   = RT_NULL;
-    RTMediaBuffer* esPacket = RT_NULL;
-
     while (mPlayerCtx->mDeliverThread->getState() == THREAD_LOOP) {
         RT_BOOL validAudioPkt = RT_FALSE;
 
-        // nodebus be operated by multithread
-        RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
+        //  nodebus be operated by multithread
+        //  RtMutex::RtAutolock autoLock(mPlayerCtx->mNodeLock);
 
         UINT32 curState = this->getCurState();
         if (RT_STATE_STARTED != curState) {

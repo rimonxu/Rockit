@@ -29,10 +29,10 @@
 #endif
 
 void unit_test_node_operations(RTNodeBus *pNodeBus) {
-    RTNodeCapability capability;
-    capability.mNodeType = RT_NODE_TYPE_DEMUXER;
-    capability.mLineType = BUS_LINE_ROOT;
-    RTNodeStub* stub = pNodeBus->findStub(&capability);
+    RTNodeInfo nodeInfo;
+    nodeInfo.mNodeType = RT_NODE_TYPE_DEMUXER;
+    nodeInfo.mLineType = BUS_LINE_ROOT;
+    RTNodeStub* stub = pNodeBus->findStub(&nodeInfo);
     if (0 && RT_NULL != stub) {
         RTNode* demuxer = stub->mCreateNode();
         demuxer->init(RT_NULL);

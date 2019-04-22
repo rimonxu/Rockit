@@ -349,3 +349,13 @@ rt_status RTNDKMediaPlayer::setCallBack(RT_CALLBACK_T callback, int p_event, voi
     }
     return RTE_BAD_VALUE;
 }
+
+
+rt_status RTNDKMediaPlayer::setCodecMeta(void *p_metadata) {
+    if (RT_NULL != mPlayerCtx) {
+        mPlayerCtx->mNodePlayer->setCodecMeta(p_metadata);
+        return RTE_NO_ERROR;
+    }
+    return RTE_BAD_VALUE;
+}
+

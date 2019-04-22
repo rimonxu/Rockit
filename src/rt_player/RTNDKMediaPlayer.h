@@ -97,6 +97,7 @@ class RTNDKMediaPlayer {
      * callback
      */
     rt_status setCallBack(RT_CALLBACK_T callback, int p_event, void *p_data);
+    rt_status setCodecMeta(void *p_metadata);
 
  private:
     struct RtNDKPlayerContext* mPlayerCtx;
