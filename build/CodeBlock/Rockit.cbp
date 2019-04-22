@@ -157,6 +157,7 @@
 		<Unit filename="../../src/rt_media/RTMediaData.cpp" />
 		<Unit filename="../../src/rt_media/RTObject.cpp" />
 		<Unit filename="../../src/rt_media/RTObjectPool.cpp" />
+		<Unit filename="../../src/rt_media/RTPersistObject.cpp" />
 		<Unit filename="../../src/rt_media/RTPktSource/RTPktSourceBase.cpp" />
 		<Unit filename="../../src/rt_media/RTPktSource/RTPktSourceLocal.cpp" />
 		<Unit filename="../../src/rt_media/include/FFMPEGAdapter.h" />
@@ -179,6 +180,7 @@
 		<Unit filename="../../src/rt_media/include/RTMediaMetaKeys.h" />
 		<Unit filename="../../src/rt_media/include/RTObject.h" />
 		<Unit filename="../../src/rt_media/include/RTObjectPool.h" />
+		<Unit filename="../../src/rt_media/include/RTPersistObject.h" />
 		<Unit filename="../../src/rt_media/include/RTPktSourceBase.h" />
 		<Unit filename="../../src/rt_media/include/RTPktSourceLocal.h" />
 		<Unit filename="../../src/rt_media/include/RTString.h" />

@@ -315,7 +315,7 @@ RTNodeStub* RTNodeBus::findStub(RTNodeCapability *capability) {
     struct rt_hash_node* rootNode = rt_hash_table_find_root(mBusCtx->mNodeAll,
                                     reinterpret_cast<void *>(capability->mNodeType));
 
-    for (hashNode = rootNode; hashNode != RT_NULL; hashNode = hashNode->next) {
+    for (hashNode = rootNode->next; hashNode != RT_NULL; hashNode = hashNode->next) {
         stub = reinterpret_cast<RTNodeStub*>(hashNode->data);
         if (capability->mLineType == probeBusType(stub->mNodeRole, capability->mLineType)) {
             break;
@@ -336,7 +336,7 @@ RTNode* RTNodeBus::findNode(RTNodeCapability *capability) {
     struct rt_hash_node* rootNode = rt_hash_table_find_root(mBusCtx->mNodeBus,
                                     reinterpret_cast<void *>(capability->mNodeType));
 
-    for (hashNode = rootNode; hashNode != RT_NULL; hashNode = hashNode->next) {
+    for (hashNode = rootNode->next; hashNode != RT_NULL; hashNode = hashNode->next) {
         node = reinterpret_cast<RTNode*>(hashNode->data);
         if (capability->mLineType == probeBusType(node->queryStub()->mNodeRole, capability->mLineType)) {
             break;

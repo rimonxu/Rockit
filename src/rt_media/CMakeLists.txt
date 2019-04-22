@@ -66,6 +66,7 @@ set(RT_PACKET_SOURCE_SRC
 set(RT_MEDIA_SRC
     RTMediaBuffer.cpp
     RTMediaData.cpp
+    RTPersistObject.cpp
     RTObject.cpp
     RTObjectPool.cpp
     RTMediaBufferPool.cpp
