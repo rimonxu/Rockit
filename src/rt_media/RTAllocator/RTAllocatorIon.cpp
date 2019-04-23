@@ -130,7 +130,9 @@ RT_RET RTAllocatorIon::freeBuffer(RTMediaBuffer **buffer) {
         }
     }
 
+    (*buffer)->setData(NULL, 0);
     rt_safe_delete(*buffer);
+
     return ret;
 }
 
@@ -143,19 +145,26 @@ RT_RET RTAllocatorIon::init(RtMetaData *config) {
         return ret;
     }
 
-    if (!config->findInt32(kKeyMemAlign, &mAlign)) {
+    if (RT_NULL != config) {
+        if (!config->findInt32(kKeyMemAlign, &mAlign)) {
+            mAlign = 4096;
+        }
+
+        if (!config->findInt32(kKeyMemUsage, &mUsage)) {
+            mUsage = PROT_READ | PROT_WRITE;
+        }
+
+        if (!config->findInt32(kKeyMemHeapMask, &mHeapMask)) {
+            mHeapMask = 1 << ION_HEAP_TYPE_SYSTEM;
+        }
+
+        if (!config->findInt32(kKeyMemFlags, &mFlags)) {
+            mFlags = 0;
+        }
+    } else {
         mAlign = 4096;
-    }
-
-    if (!config->findInt32(kKeyMemUsage, &mUsage)) {
         mUsage = PROT_READ | PROT_WRITE;
-    }
-
-    if (!config->findInt32(kKeyMemHeapMask, &mHeapMask)) {
         mHeapMask = 1 << ION_HEAP_TYPE_SYSTEM;
-    }
-
-    if (!config->findInt32(kKeyMemFlags, &mFlags)) {
         mFlags = 0;
     }
 

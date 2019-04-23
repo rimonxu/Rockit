@@ -134,10 +134,9 @@ RT_RET RTAllocatorDrm::freeBuffer(RTMediaBuffer **buffer) {
         return ret;
     }
 
-    if (*buffer) {
-        delete *buffer;
-        *buffer = NULL;
-    }
+    (*buffer)->setData(NULL, 0);
+    rt_safe_delete(*buffer);
+
     return ret;
 }
 
@@ -150,16 +149,23 @@ RT_RET RTAllocatorDrm::init(RtMetaData *config) {
         return ret;
     }
 
-    if (!config->findInt32(kKeyMemAlign, &mAlign)) {
+    if (RT_NULL != config) {
+        if (!config->findInt32(kKeyMemAlign, &mAlign)) {
+            mAlign = 4096;
+        }
+        if (!config->findInt32(kKeyMemUsage, &mUsage)) {
+            mUsage = PROT_READ | PROT_WRITE;
+        }
+        if (!config->findInt32(kKeyMemFlags, &mFlags)) {
+            mFlags = MAP_SHARED;
+        }
+        if (!config->findInt32(kKeyMemHeapMask, &mHeapMask)) {
+            mHeapMask = 0;
+        }
+    } else {
         mAlign = 4096;
-    }
-    if (!config->findInt32(kKeyMemUsage, &mUsage)) {
         mUsage = PROT_READ | PROT_WRITE;
-    }
-    if (!config->findInt32(kKeyMemFlags, &mFlags)) {
         mFlags = MAP_SHARED;
-    }
-    if (!config->findInt32(kKeyMemHeapMask, &mHeapMask)) {
         mHeapMask = 0;
     }
 
